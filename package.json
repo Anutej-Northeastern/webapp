@@ -1,0 +1,29 @@
+{
+  "name": "webapp",
+  "version": "1.0.0",
+  "description": "assignment 1",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apoddaturi/webapp.git"
+  },
+  "author": "Anutej Poddaturi",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/apoddaturi/webapp/issues"
+  },
+  "homepage": "https://github.com/apoddaturi/webapp#readme",
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "cors": "^2.8.5",
+    "debug": "^4.3.4",
+    "express": "^4.18.2",
+    "pg": "^8.9.0"
+  },
+  "devDependencies": {
+    "jest": "^29.4.1"
+  }
+}
