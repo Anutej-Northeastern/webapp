@@ -3,7 +3,7 @@ const express = require('express');
 const app = express();
 const bcrypt = require('bcrypt');
 
-const {saveUser, hashPassword, emailValidation, getUser, update, comparePasswords } = require('./app-service.js');
+const {saveUser, hashPassword, emailValidation, fetchUser, updateUser, checkPasswords } = require('./app-service.js');
 
 app.listen(3300, () => {
     console.log('Server is now listening at port 3300');
@@ -57,7 +57,7 @@ app.post('/users', async (request, response)=> {
                 return response.end();
             }
             else{
-            const oldUser = await getUser(payload.username);
+            const oldUser = await fetchUser(payload.username);
             if(oldUser){
                  //400
                 response.status(400);
@@ -95,11 +95,11 @@ app.get('/users/:id',async (request, response) => {
         const id = request.params.id;
         
         
-        const existingUser = await getUser(username);
+        const existingUser = await fetchUser(username);
         
         if(existingUser){
         const authenticated = bcrypt.compare(password, existingUser.password);
-        await comparePasswords(password, existingUser.password)
+        await checkPasswords(password, existingUser.password)
         if(authenticated){
             if(existingUser.id == id){
                 //200 OK
@@ -144,7 +144,7 @@ app.put('/users/:id',async (request, response)=> {
 
     var id = request.params.id;
 
-    const existingUser = await getUser(username, 'get');
+    const existingUser = await fetchUser(username, 'get');
     if(!existingUser){
         response.status(401)
         response.json("Username cannot be found");
@@ -185,7 +185,7 @@ app.put('/users/:id',async (request, response)=> {
             }else{
                 if(!(payload.username === username)){
                     emailValidity = await emailValidation(payload.username);
-                    isUserNameTaken = await getUser(payload.username, 'check');
+                    isUserNameTaken = await fetchUser(payload.username, 'check');
                 }
             }
             
@@ -211,7 +211,7 @@ app.put('/users/:id',async (request, response)=> {
                         }else{
                             payload.password = await hashPassword(payload.password);    
                             //204     
-                            const result = await update(payload, id);
+                            const result = await updateUser(payload, id);
                             response.status(204);
                             return response.end();
                         }
@@ -219,7 +219,7 @@ app.put('/users/:id',async (request, response)=> {
                         payload.password = password;
                         payload.password = await hashPassword(payload.password);    
                         //204     
-                        const result = await update(payload, id);
+                        const result = await updateUser(payload, id);
                         response.status(204);
                         return response.end();
                     } 

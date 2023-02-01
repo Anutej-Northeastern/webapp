@@ -57,7 +57,7 @@ const  emailValidation = (input) =>{
 }
 
 
-const getUser = async (username, additional) => {
+const fetchUser = async (username, additional) => {
 
     return new Promise((resolve, reject)=>{
         let q = `Select * from users where username = '${username}'`;
@@ -82,7 +82,23 @@ const getUser = async (username, additional) => {
     
 }
 
-const update = (user, id) => {
+
+
+const checkPasswords = (password, hashedPassword) =>{
+
+    return new Promise((resolve, reject)=>{
+        bcrypt.compare(password, hashedPassword, (error, result)=>{
+            
+            if(result){
+                resolve(true)
+            }else{
+                reject(false)
+            }
+        })
+    })   
+}
+
+const updateUser = (user, id) => {
     var d = new Date();
     d = new Date(d.getTime() - 3000000);
     var date_format_str = d.getFullYear().toString()+"-"+((d.getMonth()+1).toString().length==2?(d.getMonth()+1).toString():"0"+(d.getMonth()+1).toString())+"-"+(d.getDate().toString().length==2?d.getDate().toString():"0"+d.getDate().toString())+" "+(d.getHours().toString().length==2?d.getHours().toString():"0"+d.getHours().toString())+":"+((parseInt(d.getMinutes()/5)*5).toString().length==2?(parseInt(d.getMinutes()/5)*5).toString():"0"+(parseInt(d.getMinutes()/5)*5).toString())+":00";
@@ -102,26 +118,11 @@ const update = (user, id) => {
     })   
 }
 
-const comparePasswords = (password, hashedPassword) =>{
-
-    return new Promise((resolve, reject)=>{
-        bcrypt.compare(password, hashedPassword, (error, result)=>{
-            
-            if(result){
-                resolve(true)
-            }else{
-                reject(false)
-            }
-        })
-    })   
-}
-
 module.exports = {
     saveUser,
     hashPassword,
     emailValidation,
-    getUser,
-    update,
-    comparePasswords
-    
+    fetchUser,
+    updateUser,
+    checkPasswords
 }
