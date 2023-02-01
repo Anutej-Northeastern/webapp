@@ -150,7 +150,7 @@ app.put('/users/:id',async (request, response)=> {
         response.json("Username cannot be found");
         return response.end();
     }else{
-        const authenticated = await comparePasswords(password, existingUser.password)
+        const authenticated = await checkPasswords(password, existingUser.password)
         if(authenticated){
 
             const payload = request.body;
