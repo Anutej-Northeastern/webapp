@@ -3,7 +3,7 @@ const express = require('express');
 const app = express();
 const bcrypt = require('bcrypt');
 
-const {save, hashPassword, emailValidation, getUser, update, comparePasswords } = require('./app-service.js');
+const {saveUser, hashPassword, emailValidation, getUser, update, comparePasswords } = require('./app-service.js');
 
 app.listen(3300, () => {
     console.log('Server is now listening at port 3300');
@@ -20,10 +20,12 @@ app.get('/healthz', (request, response) => {
     try{
         response.status(200);
         response.json({});
+        return response.end();
     }
     catch(error){
         response.status(501);
         response.json(error);
+        return response.end();
     } 
 });
 
@@ -36,6 +38,7 @@ app.post('/users', async (request, response)=> {
             //400
             response.status(400);
             response.json("Bad Request");
+            return response.end();
             
         }
         
@@ -43,6 +46,7 @@ app.post('/users', async (request, response)=> {
              //400
             response.status(400);
             response.json("Bad Request");
+            return response.end();
         }
         else{
             const emailValidity = await emailValidation(payload.username);
@@ -50,20 +54,23 @@ app.post('/users', async (request, response)=> {
                 //400
                 response.status(400);
                 response.json("Username must be in format of example@example.com");
+                return response.end();
             }
             else{
-            const existingUser = await getUser(payload.username);
-            if(existingUser){
+            const oldUser = await getUser(payload.username);
+            if(oldUser){
                  //400
                 response.status(400);
                 response.json("User Already exists");
+                return response.end();
             }
             else{
                  //201
                 payload.password = await hashPassword(payload.password);
-                const newUser = await save(payload);
+                const newUser = await saveUser(payload);
                 response.status(201);
                 response.json(newUser);
+                return response.end();
                 }
             }
         }
@@ -72,6 +79,7 @@ app.post('/users', async (request, response)=> {
     catch(error){
         response.status(400);
         response.json({});
+        return response.end();
     } 
 })
 
@@ -81,126 +89,155 @@ app.get('/users/:id',async (request, response) => {
     try{
         const authHeader = request.headers.authorization
         const [type, token] = authHeader.split(' ');
-        console.log(token);
         const decodedToken = Buffer.from(token,'base64').toString('utf8');
         const [username, password] = decodedToken.split(':');
-        console.log(username+'---'+password);
-        
         
         const id = request.params.id;
         
-        //check for authentication - check if a user with the given username and password exist?
+        
         const existingUser = await getUser(username);
         
         if(existingUser){
         const authenticated = bcrypt.compare(password, existingUser.password);
-        //  await comparePasswords(password, existingUser.password)
-        console.log(authenticated+'authenticated');
+        await comparePasswords(password, existingUser.password)
         if(authenticated){
-            //check for authorization
             if(existingUser.id == id){
                 //200 OK
                 delete existingUser.password;
                 response.status(403);
                 response.json(existingUser);
-                console.log("existing User"+existingUser);
+                return response.end();
             }else{
                 //403
                 response.status(403);
                 response.json("Cannot access other users data");
+                return response.end();
             }
         }else{
             //401
             response.status(401);
             response.json("Username or password are incorrect");
+            return response.end();
         }
         }
         else{
              //401
-             response.status(401);
+            response.status(401);
             response.json("No user with this username");
+            return response.end();
         }
     }
     catch(error){
         //401
         response.status(401);
         response.json("Username or password are incorrect");
+        return response.end();
         
     } 
 });
 
 app.put('/users/:id',async (request, response)=> {
-    try{
-        const authHeader = request.headers.authorization;
-        const [type, token] = authHeader.split(' ');
-        const decodedToken = Buffer.from(token,'base64').toString('utf8');
-        const [username, password] = decodedToken.split(':');
-        console.log(username+'---'+password);
-        const id = request.params.id;
-        const existingUser = await getUser(username);
-        if(!existingUser){
-            response.status(400);
-            response.json("Given username doesn't exist in database");
-        }else{
-            const authenticated = await comparePasswords(password, existingUser.password)
-        
-        if(authenticated){
-            var payload = request.body;
+    const authHeader = request.headers.authorization;
+    const [type, token] = authHeader.split(' ');
+    const decodedToken = Buffer.from(token,'base64').toString('utf8');
+    const [username, password] = decodedToken.split(':');
 
-            const emailValidity = await emailValidation(payload.username);
+    var id = request.params.id;
+
+    const existingUser = await getUser(username, 'get');
+    if(!existingUser){
+        response.status(401)
+        response.json("Username cannot be found");
+        return response.end();
+    }else{
+        const authenticated = await comparePasswords(password, existingUser.password)
+        if(authenticated){
+
+            const payload = request.body;
+
+            if('first_name' in payload){
+                if(!(payload.first_name.trim())){
+                    //400
+                    response.status(400)
+                    response.json("first_name cannot be empty value");
+                    return response.end();
+                }  
+            }else{
+                payload.first_name = existingUser.first_name;
+            }
+
+            if('last_name' in payload){
+                if(!(payload.last_name.trim())){
+                    //400
+                    response.status(400)
+                    response.json("last_name cannot be empty value");
+                    return response.end();
+                }  
+            }else{
+                payload.last_name = existingUser.last_name;
+            }
+
+            let emailValidity = true;
+            let isUserNameTaken = false;
+
+            if(!payload.username){
+                payload.username = username;
+            }else{
+                if(!(payload.username === username)){
+                    emailValidity = await emailValidation(payload.username);
+                    isUserNameTaken = await getUser(payload.username, 'check');
+                }
+            }
+            
             if(!emailValidity){
                 //400
-                console.log("Not valid email");
-                response.status(400);
-                response.json("Username must be of format example@example.com");
-            }else{
-                if(existingUser.id == id){
-                    //201
-                    console.log(id+"--userid--"+existingUser.id);
-                    // const validusername = 
-                    if(!payload.password)
-                    {
+                response.status(400)
+                response.json("Username must be in example@example format");
+                return response.end();
+            }else if(isUserNameTaken){
+                //400
+                response.status(400)
+                response.json("UserName present in db");
+                return response.end();
+            }
+            else{
+                if(existingUser.id == id){   
+                    if('password' in payload){
+                        if(!(payload.password.trim())){
+                            //400
+                            response.status(400)
+                            response.json("password cannot be empty value");
+                            return response.end();
+                        }else{
+                            payload.password = await hashPassword(payload.password);    
+                            //204     
+                            const result = await update(payload, id);
+                            response.status(204);
+                            return response.end();
+                        }
+                    }else{
                         payload.password = password;
-                    }
-                    if(!payload.username)
-                    {
-                        payload.username = username;
-                    }
-                    if(!payload.first_name )
-                    {
-                        payload.first_name = existingUser.first_name;
-                    }
-                    if(!payload.last_name)
-                    {
-                        payload.last_name = existingUser.last_name;
-                    }
-                    
-                    payload.password = await hashPassword(payload.password);
-                    console.log("payload"+JSON.stringify(payload));
-                    console.log("temp before result from get");
-                    const result = await update(payload, id);
-                    response.status(201);
-                    response.json(result);
+                        payload.password = await hashPassword(payload.password);    
+                        //204     
+                        const result = await update(payload, id);
+                        response.status(204);
+                        return response.end();
+                    } 
                 }else{
-                     //403
-                     response.status(403)
-                     response.json("cannot access other user data");
+                    //403
+                    response.status(403);
+                    console.log("inside else");
+                    response.json("Cannot access other user data");
+                    return response.end();
                 }
             }  
         }else{
             //401
-            response.status(401);
-            response.json("User or password incorrect");
+            response.status(403);
+            response.json("Username or password are not mismatching");
+            return response.end();
         }
     }
-    
-}
-catch(error){
-    //401
-    console.log("error "+error);
-        response.status(401);
-        response.json("User or password incorrect");
-    } 
 })
 
 // handling unimplemented methods
