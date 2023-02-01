@@ -76,6 +76,59 @@ app.post('/users', async (request, response)=> {
 })
 
 
+// // Handling Specific user api calls
+app.get('/users/:id',async (request, response) => {
+    try{
+        const authHeader = request.headers.authorization
+        const [type, token] = authHeader.split(' ');
+        console.log(token);
+        const decodedToken = Buffer.from(token,'base64').toString('utf8');
+        const [username, password] = decodedToken.split(':');
+        console.log(username+'---'+password);
+        
+        
+        const id = request.params.id;
+        
+        //check for authentication - check if a user with the given username and password exist?
+        const existingUser = await getUser(username);
+        
+        if(existingUser){
+        const authenticated = bcrypt.compare(password, existingUser.password);
+        //  await comparePasswords(password, existingUser.password)
+        console.log(authenticated+'authenticated');
+        if(authenticated){
+            //check for authorization
+            if(existingUser.id == id){
+                //200 OK
+                delete existingUser.password;
+                response.status(403);
+                response.json(existingUser);
+                console.log("existing User"+existingUser);
+            }else{
+                //403
+                response.status(403);
+                response.json("Cannot access other users data");
+            }
+        }else{
+            //401
+            response.status(401);
+            response.json("Username or password are incorrect");
+        }
+        }
+        else{
+             //401
+             response.status(401);
+            response.json("No user with this username");
+        }
+    }
+    catch(error){
+        //401
+        response.status(401);
+        response.json("Username or password are incorrect");
+        
+    } 
+});
+
 
 // handling unimplemented methods
 
