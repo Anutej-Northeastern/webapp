@@ -3,7 +3,7 @@ const express = require('express');
 const app = express();
 const bcrypt = require('bcrypt');
 
-const {save, hashPassword, emailValidation, getUser } = require('./app-service.js');
+const {save, hashPassword, emailValidation, getUser, update, comparePasswords } = require('./app-service.js');
 
 app.listen(3300, () => {
     console.log('Server is now listening at port 3300');
@@ -129,6 +129,79 @@ app.get('/users/:id',async (request, response) => {
     } 
 });
 
+app.put('/users/:id',async (request, response)=> {
+    try{
+        const authHeader = request.headers.authorization;
+        const [type, token] = authHeader.split(' ');
+        const decodedToken = Buffer.from(token,'base64').toString('utf8');
+        const [username, password] = decodedToken.split(':');
+        console.log(username+'---'+password);
+        const id = request.params.id;
+        const existingUser = await getUser(username);
+        if(!existingUser){
+            response.status(400);
+            response.json("Given username doesn't exist in database");
+        }else{
+            const authenticated = await comparePasswords(password, existingUser.password)
+        
+        if(authenticated){
+            var payload = request.body;
+
+            const emailValidity = await emailValidation(payload.username);
+            if(!emailValidity){
+                //400
+                console.log("Not valid email");
+                response.status(400);
+                response.json("Username must be of format example@example.com");
+            }else{
+                if(existingUser.id == id){
+                    //201
+                    console.log(id+"--userid--"+existingUser.id);
+                    // const validusername = 
+                    if(!payload.password)
+                    {
+                        payload.password = password;
+                    }
+                    if(!payload.username)
+                    {
+                        payload.username = username;
+                    }
+                    if(!payload.first_name )
+                    {
+                        payload.first_name = existingUser.first_name;
+                    }
+                    if(!payload.last_name)
+                    {
+                        payload.last_name = existingUser.last_name;
+                    }
+                    
+                    payload.password = await hashPassword(payload.password);
+                    console.log("payload"+JSON.stringify(payload));
+                    console.log("temp before result from get");
+                    const result = await update(payload, id);
+                    response.status(201);
+                    response.json(result);
+                }else{
+                     //403
+                     response.status(403)
+                     response.json("cannot access other user data");
+                }
+            }  
+        }else{
+            //401
+            response.status(401);
+            response.json("User or password incorrect");
+        }
+    }
+    
+}
+catch(error){
+    //401
+    console.log("error "+error);
+        response.status(401);
+        response.json("User or password incorrect");
+    } 
+})
 
 // handling unimplemented methods
 
