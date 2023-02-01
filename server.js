@@ -31,7 +31,7 @@ app.get('/healthz', (request, response) => {
 
 // Handling default user api calls
 
-app.post('/users', async (request, response)=> {
+app.post('/v1/user', async (request, response)=> {
     try{
         const payload = request.body;
         if(payload.id || payload.account_created || payload.account_updated){
@@ -85,15 +85,13 @@ app.post('/users', async (request, response)=> {
 
 
 // // Handling Specific user api calls
-app.get('/users/:id',async (request, response) => {
+app.get('/v1/user/:userId',async (request, response) => {
     try{
         const authHeader = request.headers.authorization
         const [type, token] = authHeader.split(' ');
         const decodedToken = Buffer.from(token,'base64').toString('utf8');
         const [username, password] = decodedToken.split(':');
-        
-        const id = request.params.id;
-        
+        const id = request.params.userId;
         
         const existingUser = await fetchUser(username);
         
@@ -136,13 +134,13 @@ app.get('/users/:id',async (request, response) => {
     } 
 });
 
-app.put('/users/:id',async (request, response)=> {
-    const authHeader = request.headers.authorization;
+app.put('/v1/user/:userId',async (request, response)=> {
+    try{
+        const authHeader = request.headers.authorization;
     const [type, token] = authHeader.split(' ');
     const decodedToken = Buffer.from(token,'base64').toString('utf8');
     const [username, password] = decodedToken.split(':');
-
-    var id = request.params.id;
+    var id = request.params.userId;
 
     const existingUser = await fetchUser(username, 'get');
     if(!existingUser){
@@ -184,8 +182,11 @@ app.put('/users/:id',async (request, response)=> {
                 payload.username = username;
             }else{
                 if(!(payload.username === username)){
-                    emailValidity = await emailValidation(payload.username);
-                    isUserNameTaken = await fetchUser(payload.username, 'check');
+                    // emailValidity = await emailValidation(payload.username);
+                    // isUserNameTaken = await fetchUser(payload.username, 'check');
+                    response.status(401);
+                    response.json("Cannot update username");
+                    return response.send();
                 }
             }
             
@@ -238,6 +239,13 @@ app.put('/users/:id',async (request, response)=> {
             return response.end();
         }
     }
+    }catch(error)
+    {
+        console.log(error);
+        response.status(403);
+        response.json("Username or password are not mismatching");
+        return response.end(); 
+    }
 })
 
 // handling unimplemented methods
@@ -252,3 +260,5 @@ app.all('*',(req,res)=>{
 app.all('/user',(req,res)=>{
     res.status(501).send("Method not implemented")
 })
+
+module.exports = {app}
