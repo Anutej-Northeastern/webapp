@@ -104,4 +104,4 @@ dist
 .tern-port
 
 # Removing package-lock.json
-package-lock.json
+# package-lock.json
