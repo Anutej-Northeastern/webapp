@@ -1,6 +1,7 @@
 # webapp
 
 # CSYE 6225 Assignment 1
+Antuej Poddaturi
 
 This assignment is for creating rest end point for checking health end point for get end point, user endpoints for put, post and get methods.
 ## Softwares Used:
