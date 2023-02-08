@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 
 const {saveUser, hashPassword, emailValidation, fetchUser, updateUser, checkPasswords } = require('./app-service.js');
 
+const {set200Response, set403Response, set201Response, set204Response, set400Response, set401Response, set501Response} = require('./responses.js');
 app.listen(3300, () => {
     console.log('Server is now listening at port 3300');
 });
@@ -18,13 +19,12 @@ app.use(express.json());
 // Health check api call
 app.get('/healthz', (request, response) => {
     try{
-        response.status(200);
-        response.json({});
+        set200Response({},response);
         return response.end();
     }
     catch(error){
-        response.status(501);
-        response.json(error);
+        console.log(error+" -- Error Caught in healthz call")
+        set400Response(error, response);
         return response.end();
     } 
 });
@@ -36,40 +36,36 @@ app.post('/users', async (request, response)=> {
         const payload = request.body;
         if(payload.id || payload.account_created || payload.account_updated){
             //400
-            response.status(400);
-            response.json("Bad Request");
+            set400Response("Bad request", response);
             return response.end();
             
         }
         
         if(!payload.first_name || !payload.last_name || !payload.password || !payload.username){
-             //400
-            response.status(400);
-            response.json("Bad Request");
+            //400
+            set400Response("Bad request", response);
             return response.end();
         }
         else{
             const emailValidity = await emailValidation(payload.username);
             if(!emailValidity){
                 //400
-                response.status(400);
-                response.json("Username must be in format of example@example.com");
+                set400Response("Username must be in format of example@example.com", response);
                 return response.end();
             }
             else{
             const oldUser = await fetchUser(payload.username);
             if(oldUser){
-                 //400
-                response.status(400);
-                response.json("User Already exists");
+                //400
+                set400Response("User Already exists", response);
                 return response.end();
             }
             else{
                  //201
                 payload.password = await hashPassword(payload.password);
                 const newUser = await saveUser(payload);
-                response.status(201);
-                response.json(newUser);
+                delete newUser.password;
+                set201Response(newUser,response)
                 return response.end();
                 }
             }
@@ -77,8 +73,7 @@ app.post('/users', async (request, response)=> {
             
         } 
     catch(error){
-        response.status(400);
-        response.json({});
+        set400Response(error,{})
         return response.end();
     } 
 })
@@ -104,33 +99,28 @@ app.get('/users/:id',async (request, response) => {
             if(existingUser.id == id){
                 //200 OK
                 delete existingUser.password;
-                response.status(403);
-                response.json(existingUser);
+                set200Response(existingUser.user,response);
                 return response.end();
             }else{
                 //403
-                response.status(403);
-                response.json("Cannot access other users data");
+                set403Response("Cannot access other users data",response);
                 return response.end();
             }
         }else{
             //401
-            response.status(401);
-            response.json("Username or password are incorrect");
+            set401Response("Username or password is incorrect",response);
             return response.end();
         }
         }
         else{
              //401
-            response.status(401);
-            response.json("No user with this username");
+            set401Response("No user with this username",response);
             return response.end();
         }
     }
     catch(error){
         //401
-        response.status(401);
-        response.json("Username or password are incorrect");
+        set401Response("Username or password are incorrect",response);
         return response.end();
         
     } 
@@ -146,8 +136,7 @@ app.put('/users/:id',async (request, response)=> {
 
     const existingUser = await fetchUser(username, 'get');
     if(!existingUser){
-        response.status(401)
-        response.json("Username cannot be found");
+        set400Response("Username cannot be found",response);
         return response.end();
     }else{
         const authenticated = await comparePasswords(password, existingUser.password)
@@ -158,8 +147,7 @@ app.put('/users/:id',async (request, response)=> {
             if('first_name' in payload){
                 if(!(payload.first_name.trim())){
                     //400
-                    response.status(400)
-                    response.json("first_name cannot be empty value");
+                    set400Response("first_name cannot be empty value",response);
                     return response.end();
                 }  
             }else{
@@ -169,8 +157,7 @@ app.put('/users/:id',async (request, response)=> {
             if('last_name' in payload){
                 if(!(payload.last_name.trim())){
                     //400
-                    response.status(400)
-                    response.json("last_name cannot be empty value");
+                    set400Response("last_name cannot be empty value",response);
                     return response.end();
                 }  
             }else{
@@ -191,13 +178,11 @@ app.put('/users/:id',async (request, response)=> {
             
             if(!emailValidity){
                 //400
-                response.status(400)
-                response.json("Username must be in example@example format");
+                set400Response("Username must be in example@example format",response);
                 return response.end();
             }else if(isUserNameTaken){
                 //400
-                response.status(400)
-                response.json("UserName present in db");
+                set400Response("UserName present in db",response);
                 return response.end();
             }
             else{
@@ -205,14 +190,13 @@ app.put('/users/:id',async (request, response)=> {
                     if('password' in payload){
                         if(!(payload.password.trim())){
                             //400
-                            response.status(400)
-                            response.json("password cannot be empty value");
+                            set400Response("password cannot be empty value",response);
                             return response.end();
                         }else{
                             payload.password = await hashPassword(payload.password);    
                             //204     
                             const result = await updateUser(payload, id);
-                            response.status(204);
+                            set204Response(result,response);
                             return response.end();
                         }
                     }else{
@@ -220,21 +204,18 @@ app.put('/users/:id',async (request, response)=> {
                         payload.password = await hashPassword(payload.password);    
                         //204     
                         const result = await updateUser(payload, id);
-                        response.status(204);
+                        set204Response(result,response);
                         return response.end();
                     } 
                 }else{
                     //403
-                    response.status(403);
-                    console.log("inside else");
-                    response.json("Cannot access other user data");
+                    set403Response("Cannot access other user data",response);
                     return response.end();
                 }
             }  
         }else{
             //401
-            response.status(403);
-            response.json("Username or password are not mismatching");
+            set403Response("Username or password are not mismatching",response);
             return response.end();
         }
     }
@@ -243,12 +224,15 @@ app.put('/users/:id',async (request, response)=> {
 // handling unimplemented methods
 
 app.all('/healthz',(req,res)=>{
-    res.status(501).send("Method not implemented")
+    set501Response("Method not implemented",res);
+    return res.end();
 })
 app.all('*',(req,res)=>{
-    res.status(501).send("Method not implemented")
+    set501Response("Method not implemented",res);
+    return res.end();
 })
 
 app.all('/user',(req,res)=>{
-    res.status(501).send("Method not implemented")
+    set501Response("Method not implemented",res);
+    return res.end();
 })
