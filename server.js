@@ -132,6 +132,7 @@ app.post('/v1/user', async (request, response)=> {
 
 // Handling Specific user api calls
 app.get('/v1/user/:id',async (request, response) => {
+
     try{
         const authHeader = request.headers.authorization
         const [type, token] = authHeader.split(' ');
@@ -143,6 +144,7 @@ app.get('/v1/user/:id',async (request, response) => {
             set400Response("Bad request", response);
             return response.end();
         }
+
         const existingUser = await fetchUser(username);
 
         if(existingUser.userExists){
@@ -182,6 +184,7 @@ app.get('/v1/user/:id',async (request, response) => {
 app.put('/v1/user/:userId',async (request, response)=> {
     try{
         const authHeader = request.headers.authorization;
+
         const [type, token] = authHeader.split(' ');
         const decodedToken = Buffer.from(token,'base64').toString('utf8');
         const [username, password] = decodedToken.split(':');
@@ -219,6 +222,7 @@ app.put('/v1/user/:userId',async (request, response)=> {
                 }else{
                     payload.last_name = existingUser.last_name;
                 }
+
 
                 let emailValidity = true;
                 let isUserNameTaken = false;
@@ -430,12 +434,14 @@ app.patch('/v1/product/:id', async (req,res)=>{
                 set403Response(`Cannot access other products with different Owner Id`,res);
                 return res.end();
             }else{
+
                 //if yes, you can update the product details - 204
 
                 if(payload.id || payload.date_added || payload.date_last_updated || payload.owner_user_id){
                     //400
                     set400Response("Bad request", res);
                     return res.end();
+
                 }
                 if(payload.quantity<0 || payload.quantity>100){
                     //400
@@ -561,6 +567,13 @@ app.put('/v1/product/:id', async (req,res)=>{
         set418Response("I'm a teapot",res);
         return res.end();
     }
+    }catch(error)
+    {
+        console.log(error);
+        response.status(403);
+        response.json("Username or password are not mismatching");
+        return response.end(); 
+    }
 })
 app.delete('/v1/product/:id', async (req,res)=> {
     try {
@@ -639,3 +652,5 @@ app.all('/user',(req,res)=>{
     set501Response("Method not implemented",res);
     return res.end();
 })
+
+module.exports = {app}
