@@ -149,7 +149,7 @@ app.get('/v1/user/:id',async (request, response) => {
         if(existingUser.userExists){
             const authenticated = await checkPasswords(password, existingUser.user.password)
             if(authenticated){
-                if(existingUser.user.id === id){
+                if(existingUser.user.id == id){
                     //200 OK
                     delete existingUser.user.password;
                     set200Response(existingUser.user, response);
