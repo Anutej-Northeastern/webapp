@@ -1,7 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const bcrypt = require('bcrypt');
 const {sequelize} = require("./sequelize/models/index.js");
 const app = express();
 const client = require('./connection.js');
@@ -150,7 +149,7 @@ app.get('/v1/user/:id',async (request, response) => {
         if(existingUser.userExists){
             const authenticated = await checkPasswords(password, existingUser.user.password)
             if(authenticated){
-                if(existingUser.user.id == id){
+                if(existingUser.user.id === id){
                     //200 OK
                     delete existingUser.user.password;
                     set200Response(existingUser.user, response);
@@ -284,7 +283,7 @@ app.put('/v1/user/:userId',async (request, response)=> {
         }
     }catch (e) {
         console.log("Caught Exception while handling put user request --- "+e);
-        set503Response("User-Password Missmatch",response);
+        set403Response("User-Password Missmatch",response);
         return response.end();
     }
 })
@@ -322,17 +321,17 @@ app.post('/v1/product',async (req,res)=>{
         const [type, token] = authHeader.split(' ');
         const decodedToken = Buffer.from(token,'base64').toString('utf8');
         const [username, password] = decodedToken.split(':');
-        
+
         //get the user details with the given username
         const result = await fetchUser(username);
-        
+
         //does a user exist with the given username?
         if(!result.userExists){
             //401
             set401Response(`User with ${username} doesn't exist`,res)
             return res.end();
         }
-        
+
         //is the password right?
         const passwordCheck = await checkPasswords(password, result.user.password)
         if(!passwordCheck){
@@ -340,7 +339,7 @@ app.post('/v1/product',async (req,res)=>{
             set401Response("Username or password is incorrect",res)
             return res.end();
         }
-        
+
         //only if everything is okay, create a new product
         //check if the payload is correct
         const payload = req.body;
@@ -355,30 +354,35 @@ app.post('/v1/product',async (req,res)=>{
             return res.end();
         }
         else if(payload.quantity<0 || payload.quantity>100){
-                    //400
-                    set400Response("Quantity cannot be less than 0 or greater than 100", res)
-                    return res.end();
-                }
-                else{
-                //check if there is any product with the given SKU
-                const p = await getProductBySKU(payload.sku)
-                if(p.productExists){
-                    set400Response("A product with the given sku exists", res);
-                    return res.end();
-                }
-    
-                //nothing wrong with the payload
-                //add the owner_user_id to the payload
-                payload.owner_user_id = result.user.id;
-                const savedProduct = await saveProduct(payload);
-                if(savedProduct){
-                    set201Response(savedProduct, res);
-                    return res.end();
-                }else{
-                    set400Response("Bad Request", res);
-                    return res.end();
-                }
+            //400
+            set400Response("Quantity cannot be less than 0 or greater than 100", res)
+            return res.end();
+        }
+        else if(typeof(payload.quantity)!="number")
+        {
+            set400Response("Quantity can only be a number", res)
+            return res.end();
+        }
+        else{
+            //check if there is any product with the given SKU
+            const p = await getProductBySKU(payload.sku)
+            if(p.productExists){
+                set400Response("A product with the given sku exists", res);
+                return res.end();
             }
+
+            //nothing wrong with the payload
+            //add the owner_user_id to the payload
+            payload.owner_user_id = result.user.id;
+            const savedProduct = await saveProduct(payload);
+            if(savedProduct){
+                set201Response(savedProduct, res);
+                return res.end();
+            }else{
+                set400Response("Bad Request", res);
+                return res.end();
+            }
+        }
     }catch (e) {
         console.log("Caught Exception while handling post product request --- "+e);
         set503Response("Please Retry",res);
@@ -541,7 +545,11 @@ app.put('/v1/product/:id', async (req,res)=>{
                     set400Response("Quantity cannot be less than 0 or greater than 100", res)
                     return res.end();
                 }
-
+                if(typeof(payload.quantity)!="number")
+                {
+                    set400Response("Quantity can only be a number", res)
+                    return res.end();
+                }
                 //check if there is any product with the given SKU
                 if(productDetails.product.sku != payload.sku){
                     const p = await getProductBySKU(payload.sku)
