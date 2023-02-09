@@ -28,9 +28,32 @@ const set403Response = (obj, response) => {
     response.json(obj);
 }
 
+const set404Response = (obj, response) => {
+    response.status(404);
+    response.json(obj);
+}
+const set418Response = (obj, response) => {
+    response.status(418);
+    response.json(obj);
+}
 const set501Response = (obj, response) => {
     response.status(501);
     response.json(obj);
 }
+const set503Response = (obj, response) => {
+    response.status(501);
+    response.json(obj);
+}
 
-module.exports = {set200Response, set403Response, set201Response, set204Response, set400Response, set401Response, set501Response}
+module.exports = {
+    set200Response,
+    set201Response,
+    set204Response,
+    set400Response,
+    set401Response,
+    set403Response,
+    set404Response,
+    set418Response,
+    set501Response,
+    set503Response
+}
