@@ -567,13 +567,6 @@ app.put('/v1/product/:id', async (req,res)=>{
         set418Response("I'm a teapot",res);
         return res.end();
     }
-    }catch(error)
-    {
-        console.log(error);
-        response.status(403);
-        response.json("Username or password are not mismatching");
-        return response.end(); 
-    }
 })
 app.delete('/v1/product/:id', async (req,res)=> {
     try {
