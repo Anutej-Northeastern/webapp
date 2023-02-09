@@ -66,7 +66,7 @@ app.get('/healthz', (request, response) => {
     }
     catch(error){
         console.log(error+" -- Error Caught in healthz call")
-        set418Response("I'm a teapot",response);
+        set503Response("Please Retry",response);
         return response.end();
     } 
 });
@@ -124,7 +124,7 @@ app.post('/v1/user', async (request, response)=> {
     }
     catch(error){
         console.log("Error Caught in post call -- "+error);
-        set418Response("I'm a teapot",response);
+        set503Response("Please Retry",response);
         return response.end();
     }
 })
@@ -175,7 +175,7 @@ app.get('/v1/user/:id',async (request, response) => {
     catch(error){
         //401
         console.log("Caught error while handing get user api call ---"+error);
-        set418Response("I'm a teapot",response);
+        set503Response("Please Retry",response);
         return response.end();
         
     } 
@@ -284,7 +284,7 @@ app.put('/v1/user/:userId',async (request, response)=> {
         }
     }catch (e) {
         console.log("Caught Exception while handling put user request --- "+e);
-        set418Response("I'm a teapot",response);
+        set503Response("User-Password Missmatch",response);
         return response.end();
     }
 })
@@ -310,7 +310,7 @@ app.get('/v1/product/:id', async (req,res)=>{
         }
     }catch (e) {
         console.log("Caught Exception while handling get product request --- "+e);
-        set418Response("I'm a teapot",res);
+        set501Response("Please Retry",res);
         return res.end();
     }
 })
@@ -322,17 +322,17 @@ app.post('/v1/product',async (req,res)=>{
         const [type, token] = authHeader.split(' ');
         const decodedToken = Buffer.from(token,'base64').toString('utf8');
         const [username, password] = decodedToken.split(':');
-
+        
         //get the user details with the given username
         const result = await fetchUser(username);
-
+        
         //does a user exist with the given username?
         if(!result.userExists){
             //401
             set401Response(`User with ${username} doesn't exist`,res)
             return res.end();
         }
-
+        
         //is the password right?
         const passwordCheck = await checkPasswords(password, result.user.password)
         if(!passwordCheck){
@@ -340,7 +340,7 @@ app.post('/v1/product',async (req,res)=>{
             set401Response("Username or password is incorrect",res)
             return res.end();
         }
-
+        
         //only if everything is okay, create a new product
         //check if the payload is correct
         const payload = req.body;
@@ -355,34 +355,33 @@ app.post('/v1/product',async (req,res)=>{
             return res.end();
         }
         else if(payload.quantity<0 || payload.quantity>100){
-            //400
-            set400Response("Quantity cannot be less than 0 or greater than 100", res)
-            return res.end();
-        }
-        else{
-            //check if there is any product with the given SKU
-            const p = await getProductBySKU(payload.sku)
-            if(p.productExists){
-                set400Response("A product with the given sku exists", res);
-                return res.end();
+                    //400
+                    set400Response("Quantity cannot be less than 0 or greater than 100", res)
+                    return res.end();
+                }
+                else{
+                //check if there is any product with the given SKU
+                const p = await getProductBySKU(payload.sku)
+                if(p.productExists){
+                    set400Response("A product with the given sku exists", res);
+                    return res.end();
+                }
+    
+                //nothing wrong with the payload
+                //add the owner_user_id to the payload
+                payload.owner_user_id = result.user.id;
+                const savedProduct = await saveProduct(payload);
+                if(savedProduct){
+                    set201Response(savedProduct, res);
+                    return res.end();
+                }else{
+                    set400Response("Bad Request", res);
+                    return res.end();
+                }
             }
-
-            //nothing wrong with the payload
-            //add the owner_user_id to the payload
-            payload.owner_user_id = result.user.id;
-            const savedProduct = await saveProduct(payload);
-            if(savedProduct){
-                set201Response(savedProduct, res);
-                return res.end();
-            }else{
-                set400Response("Bad Request", res);
-                return res.end();
-            }
-
-        }
     }catch (e) {
         console.log("Caught Exception while handling post product request --- "+e);
-        set418Response("I'm a teapot",res);
+        set503Response("Please Retry",res);
         return res.end();
     }
 })
@@ -472,7 +471,7 @@ app.patch('/v1/product/:id', async (req,res)=>{
         }
     }catch (e) {
         console.log("Caught Exception while handling patch product request --- "+e);
-        set418Response("I'm a teapot",res);
+        set501Response("Please Retry",res);
         return res.end();
     }
 })
@@ -564,7 +563,7 @@ app.put('/v1/product/:id', async (req,res)=>{
         }
     }catch (e) {
         console.log("Caught Exception while handling put product request"+e);
-        set418Response("I'm a teapot",res);
+        set503Response("Please Retry",res);
         return res.end();
     }
 })
@@ -626,7 +625,7 @@ app.delete('/v1/product/:id', async (req,res)=> {
         }
     } catch (e) {
         console.log("Caught Exception while handling delete product request"+e);
-        set418Response("I'm a teapot",res);
+        set503Response("Please Retry",res);
         return res.end();
     }
 })
