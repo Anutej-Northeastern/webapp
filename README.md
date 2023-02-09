@@ -51,12 +51,24 @@ Below are the dependencies used for building the project:
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "pg": "^8.9.0",
-    "supertest": "^6.3.3""bcrypt": "^5.1.0",
+    "supertest": "^6.3.3",
+    "bcrypt": "^5.1.0",
     "cors": "^2.8.5",
     "debug": "^4.3.4",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "pg": "^8.9.0",
-    "supertest": "^6.3.3"
-    "jest": "^29.4.1"
+    "supertest": "^6.3.3",
+    "jest": "^29.4.1",
+    "sequelize": "^6.28.0",
+    "sequelize-cli": "^6.6.0"
 
+## Implementing ORM
+1. Install sequelize, sequelize-cli, pg package by navigating to the root folder.
+2. Create a new folder to hold all the sequelize files by executing the below command `mkdir sequelize`
+3. Change to the directory by executing this command: `cd sequelize`
+4. now run npx sequelize-cli init to create necessary files and folders
+5. To create user and product models run below commands:
+   1. `npx sequelize-cli model:generate --name User --attributes id:number,first_name:string,last_name:string,password:string,username:string`
+   2. `npx sequelize-cli model:generate --name Product --attributes id:number,name:string,description:string,sku:string,manufacturer:string,quantity:number`
+6. Running the above commands creates the migration files that are needed.
