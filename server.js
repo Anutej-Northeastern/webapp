@@ -348,7 +348,7 @@ app.post('/v1/product',async (req,res)=>{
             set400Response("Bad request", res);
             return res.end();
         }
-        else if(!payload.name || !payload.description || !payload.sku || !payload.manufacturer || !payload.quantity){
+        else if(!payload.name || !payload.description || !payload.sku || !payload.manufacturer || !('quantity' in payload)){
             //400
             set400Response("Bad Request", res);
             return res.end();
