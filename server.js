@@ -81,7 +81,7 @@ app.post('/v1/user', async (request, response)=> {
             return response.end();
         }
 
-        const acceptedKeys = ['first_name', 'last_name', 'password', 'username'];
+        const acceptedKeys = ['first_name', 'last_name', 'password', 'username', 'quantity'];
         for(const key in Object.keys(payload)){
             if(!(key in acceptedKeys)){
                 set400Response("Bad request", response);
