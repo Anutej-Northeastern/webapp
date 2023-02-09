@@ -628,7 +628,7 @@ app.delete('/v1/product/:id', async (req,res)=> {
             }
         }else{
             //if not then you are not authorized to update - 403
-            set403Response(`Cannot access products with different owner id ${productId}`,res);
+            set403Response(`Cannot access products with different owner id`,res);
             return res.end();
         }
     } catch (e) {
