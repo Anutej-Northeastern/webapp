@@ -355,30 +355,35 @@ app.post('/v1/product',async (req,res)=>{
             return res.end();
         }
         else if(payload.quantity<0 || payload.quantity>100){
-                    //400
-                    set400Response("Quantity cannot be less than 0 or greater than 100", res)
-                    return res.end();
-                }
-                else{
-                //check if there is any product with the given SKU
-                const p = await getProductBySKU(payload.sku)
-                if(p.productExists){
-                    set400Response("A product with the given sku exists", res);
-                    return res.end();
-                }
-    
-                //nothing wrong with the payload
-                //add the owner_user_id to the payload
-                payload.owner_user_id = result.user.id;
-                const savedProduct = await saveProduct(payload);
-                if(savedProduct){
-                    set201Response(savedProduct, res);
-                    return res.end();
-                }else{
-                    set400Response("Bad Request", res);
-                    return res.end();
-                }
+            //400
+            set400Response("Quantity cannot be less than 0 or greater than 100", res)
+            return res.end();
+        }
+        else if(typeof(payload.quantity)!="number")
+        {
+            set400Response("Quantity can only be a number", res)
+            return res.end();
+        }
+        else{
+            //check if there is any product with the given SKU
+            const p = await getProductBySKU(payload.sku)
+            if(p.productExists){
+                set400Response("A product with the given sku exists", res);
+                return res.end();
             }
+
+            //nothing wrong with the payload
+            //add the owner_user_id to the payload
+            payload.owner_user_id = result.user.id;
+            const savedProduct = await saveProduct(payload);
+            if(savedProduct){
+                set201Response(savedProduct, res);
+                return res.end();
+            }else{
+                set400Response("Bad Request", res);
+                return res.end();
+            }                
+        }
     }catch (e) {
         console.log("Caught Exception while handling post product request --- "+e);
         set503Response("Please Retry",res);
@@ -445,6 +450,11 @@ app.patch('/v1/product/:id', async (req,res)=>{
                 if(payload.quantity<0 || payload.quantity>100){
                     //400
                     set400Response("Quantity cannot be less than 0 or greater than 100", res)
+                    return res.end();
+                }
+                if(typeof(payload.quantity)!="number")
+                {
+                    set400Response("Quantity can only be a number", res)
                     return res.end();
                 }
 
@@ -541,7 +551,11 @@ app.put('/v1/product/:id', async (req,res)=>{
                     set400Response("Quantity cannot be less than 0 or greater than 100", res)
                     return res.end();
                 }
-
+                if(typeof(payload.quantity)!="number")
+                {
+                    set400Response("Quantity can only be a number", res)
+                    return res.end();
+                }
                 //check if there is any product with the given SKU
                 if(productDetails.product.sku != payload.sku){
                     const p = await getProductBySKU(payload.sku)
