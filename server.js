@@ -535,7 +535,7 @@ app.put('/v1/product/:id', async (req,res)=>{
                     return res.end();
                 }
 
-                if(!payload.name || !payload.description || !payload.sku || !payload.manufacturer || !payload.quantity){
+                if(!payload.name || !payload.description || !payload.sku || !payload.manufacturer || !('quantity' in payload)){
                     //400
                     set400Response("Bad Request", res);
                     return res.end();
