@@ -1,7 +1,7 @@
 const {sum} = require('./sampletest.js');
 
 test('properly adds two numbers', ()=>{
-   expect(sum(80,20)).toBe(100)
+   expect(sum(80,20)).toBe(200)
 })
 // const request = require('supertest');
 // const {app} = require('../server.js');
