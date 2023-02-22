@@ -171,50 +171,58 @@ app.post('/v1/user', async (request, response)=> {
 app.get('/v1/user/:id',async (request, response) => {
 
     try{
-        const authHeader = request.headers.authorization
-        const [type, token] = authHeader.split(' ');
-        const decodedToken = Buffer.from(token,'base64').toString('utf8');
-        const [username, password] = decodedToken.split(':');
+        const authHeader = request.headers.authorization;
+        const [type, token] = authHeader.split(" ");
+        const decodedToken = Buffer.from(token, "base64").toString("utf8");
+        const [username, password] = decodedToken.split(":");
 
         const id = request.params.id;
-        if(isNaN(id)){
+        if (isNaN(id)) {
             set400Response("Bad request", response);
             return response.end();
         }
-
+        //check for authentication - check if a user with the given username and password exist?
         const existingUser = await fetchUser(username);
 
-        if(existingUser.userExists){
-            const authenticated = await checkPasswords(password, existingUser.user.password)
-            if(authenticated){
-                if(existingUser.user.id == id){
-                    //200 OK
-                    delete existingUser.user.password;
-                    set200Response(existingUser.user, response);
-                    return response.end();
-                }else{
-                    //403
-                    set403Response("Cannot access other users data", response);
-                    return response.end();
-                }
-            }else{
-                //401
-                set401Response("Username or password is incorrect",response)
+        if (existingUser.userExists) {
+            const authenticated = await checkPasswords(
+            password,
+            existingUser.user.password
+            );
+            if (authenticated) {
+            //check for authorization
+            if (existingUser.user.id == id) {
+                //200 OK
+                delete existingUser.user.password;
+                set200Response(existingUser.user, response);
+                return response.end();
+            } else {
+                //403
+                set403Response(
+                    "You are not authorized to access this data",
+                    response
+                );
                 return response.end();
             }
-        }
-        else{
-            //401
-            set401Response("No user with this username",response)
+            } else {
+                //401
+                set401Response("Username and password mismatch", response);
+                return response.end();
+                }
+            } else {
+        //401
+            set401Response(
+                "Unable to fetch user with given username",
+                response
+            );
             return response.end();
         }
     }
     catch(error){
         //401
         console.log("Caught error while handing get user api call ---"+error);
-        set503Response("Please Retry",response);
+        set418Response("Please Retry",response);
         return response.end();
-        
     } 
 })
 
