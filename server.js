@@ -354,101 +354,156 @@ app.put('/v1/user/:id',async (request, response)=> {
 
 // Handling Product calls
 // Unauthenticated call
-app.get('/v1/product/:id', async (req,res)=>{
+app.get('/v1/product/:id', async (request,response)=>{
     try {
-        //200 - OK
-        const productId = req.params.id;
-        if(isNaN(productId)){
-            set400Response("Bad request", res);
-            return res.end();
-        }
-        const product = await getProduct(productId);
-        if(product.productExists){
-            set200Response(product.product, res);
-            return res.end();
-        }else{
-            set404Response(`Product Not Found`,res);
-            return res.end();
-        }
+        const productId = request.params.id;
+	    if (isNaN(productId)) {
+		    set401Response("Bad request", response);
+		    return response.end();
+	    }
+	    const product = await getProduct(productId);
+	    if (product.productExists) {
+		    set200Response(product.product, response);
+		    return response.end();
+	    } else {
+		    set404Response(`Unable to Find Product`, response);
+    		return response.end();
+	    }
     }catch (e) {
         console.log("Caught Exception while handling get product request --- "+e);
-        set501Response("Please Retry",res);
+        set400Response("Bad Request",res);
         return res.end();
     }
 })
 // Authenticated Calls
-app.post('/v1/product',async (req,res)=>{
+app.post('/v1/product',async (request,response)=>{
     try{
-        //get the user credentials
-        const authHeader = req.headers.authorization
-        const [type, token] = authHeader.split(' ');
-        const decodedToken = Buffer.from(token,'base64').toString('utf8');
-        const [username, password] = decodedToken.split(':');
+        
+	//get the user credentials
+	const authHeader = request.headers.authorization;
+	const [type, token] = authHeader.split(" ");
+	const decodedToken = Buffer.from(token, "base64").toString("utf8");
+	const [username, password] = decodedToken.split(":");
 
-        //get the user details with the given username
-        const result = await fetchUser(username);
+	//get the user details with the given username
+	const result = await fetchUser(username);
+	console.log(`logged in user details -- ${JSON.stringify(result)}`);
 
-        //does a user exist with the given username?
-        if(!result.userExists){
-            //401
-            set401Response(`User with ${username} doesn't exist`,res)
-            return res.end();
-        }
+	//does a user exist with the given username?
+	if (!result.userExists) {
+		//401
+		set401Response(
+			`Unable to find user with username : ${username}`,
+			response
+		);
+		return response.end();
+	}
 
-        //is the password right?
-        const passwordCheck = await checkPasswords(password, result.user.password)
-        if(!passwordCheck){
-            //401
-            set401Response("Username or password is incorrect",res)
-            return res.end();
-        }
+	//is the password right?
+	const passwordCheck = await checkPasswords(password, result.user.password);
+	if (!passwordCheck) {
+		//401
+		set401Response("Username or Password is incorrect", response);
+		return response.end();
+	}
 
-        //only if everything is okay, create a new product
-        //check if the payload is correct
-        const payload = req.body;
-        if(payload.id || payload.date_added || payload.date_last_updated || payload.owner_user_id){
-            //400
-            set400Response("Bad request", res);
-            return res.end();
-        }
-        else if(!payload.name || !payload.description || !payload.sku || !payload.manufacturer || !('quantity' in payload)){
-            //400
-            set400Response("Bad Request", res);
-            return res.end();
-        }
-        else if(payload.quantity<0 || payload.quantity>100){
-            //400
-            set400Response("Quantity cannot be less than 0 or greater than 100", res)
-            return res.end();
-        }
-        else if(typeof(payload.quantity)!="number")
-        {
-            set400Response("Quantity can only be a number", res)
-            return res.end();
-        }
-        else{
-            //check if there is any product with the given SKU
-            const p = await getProductBySKU(payload.sku)
-            if(p.productExists){
-                set400Response("A product with the given sku exists", res);
-                return res.end();
-            }
+	//only if everything is okay, create a new product
+	//check if the payload is correct
+	const payload = request.body;
+	console.log(`Payload ---${JSON.stringify(payload)}`);
 
-            //nothing wrong with the payload
-            //add the owner_user_id to the payload
-            payload.owner_user_id = result.user.id;
-            const savedProduct = await saveProduct(payload);
-            if(savedProduct){
-                set201Response(savedProduct, res);
-                return res.end();
-            }else{
-                set400Response("Bad Request", res);
-                return res.end();
-            }
-        }
+	const acceptedKeys = [
+		"name",
+		"description",
+		"sku",
+		"manufacturer",
+		"quantity",
+	];
+	for (const key in Object.keys(payload)) {
+		console.log(`$[(key in acceptedKeys)]`);
+		if (!(key in acceptedKeys)) {
+			set400Response("Bad request", response);
+			return response.end();
+		}
+	}
+
+	if (
+		!payload.name ||
+		!payload.description ||
+		!payload.sku ||
+		!payload.manufacturer ||
+		!("quantity" in payload)
+	) {
+		//400
+		set400Response("Bad Request", response);
+		return response.end();
+	}
+
+	if (
+		typeof payload.name != "string" ||
+		typeof payload.description != "string" ||
+		typeof payload.sku != "string" ||
+		typeof payload.manufacturer != "string" ||
+		typeof payload.quantity != "number"
+	) {
+		set400Response("Bad request", response);
+		return response.end();
+	}
+
+	if (
+		!isNaN(payload.name) ||
+		!isNaN(payload.description) ||
+		!isNaN(payload.sku) ||
+		!isNaN(payload.manufacturer) ||
+		isNaN(payload.quantity)
+	) {
+		set400Response("Bad request", response);
+		return response.end();
+	}
+
+	if (
+		!payload.name.trim() ||
+		!payload.description.trim() ||
+		!payload.sku.trim() ||
+		!payload.manufacturer.trim()
+	) {
+		//400
+		set400Response("Bad Request", response);
+		return response.end();
+	}
+
+	//check if there is any product with the given SKU
+	const p = await getProductBySKU(payload.sku);
+	if (p.productExists) {
+		set400Response(
+			"Product with given SKU already exists in DB",
+			response
+		);
+		return response.end();
+	}
+
+	if (payload.quantity < 0 || payload.quantity > 100) {
+		set400Response(
+			"Quantity can only be between 0 and 100",
+			response
+		);
+		return response.end();
+	}
+
+	//nothing wrong with the payload
+	//add the owner_user_id to the payload
+	payload.owner_user_id = result.user.id;
+	const savedProduct = await saveProduct(payload);
+	if (savedProduct) {
+		set201Response(savedProduct, response);
+		return response.end();
+	} else {
+		set400Response("Bad Request", response);
+		return response.end();
+	}
     }catch (e) {
         console.log("Caught Exception while handling post product request --- "+e);
-        set503Response("Please Retry",res);
+        set400Response("Bad Request",res);
         return res.end();
     }
 })
