@@ -12,7 +12,6 @@ const saveUser = async(newUser) => {
     }
 }
 
-
 const hashPassword = (password) => {
 
     return new Promise((resolve, reject)=>{
@@ -36,8 +35,6 @@ const hashPassword = (password) => {
 
 }
 
-
-
 const  emailValidation = (input) =>{
     return new Promise((resolve, reject)=>{
         var validRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
@@ -48,7 +45,6 @@ const  emailValidation = (input) =>{
         }
     })
 }
-
 
 const fetchUser = async (email) => {
 
@@ -64,8 +60,6 @@ const fetchUser = async (email) => {
     }
     
 }
-
-
 
 const checkPasswords = (password, hashedPassword) =>{
 
@@ -166,7 +160,6 @@ const deleteProduct = async (productId) => {
         return false;
     }
 }
-
 
 module.exports = {
     saveUser,
