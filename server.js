@@ -57,10 +57,12 @@ const connectDb = async() =>{
         console.log(`Listening at port ${port}`);
     })
 })();
+
+
 // Health check api call
 app.get('/healthz', (request, response) => {
     try{
-        set200Response({},response);
+        set200Response("Everything is okay",response);
         return response.end();
     }
     catch(error){
@@ -75,55 +77,91 @@ app.get('/healthz', (request, response) => {
 app.post('/v1/user', async (request, response)=> {
     try{
         const payload = request.body;
-        if(payload.id || payload.account_created || payload.account_updated){
-            //400
+    console.log(`Payload ---${JSON.stringify(payload)}`);
+
+    const acceptedKeys = ["first_name", "last_name", "password", "username"];
+    for (const key in Object.keys(payload)) {
+        console.log(`$[(key in acceptedKeys)]`);
+        if (!(key in acceptedKeys)) {
             set400Response("Bad request", response);
             return response.end();
         }
+    }
 
-        const acceptedKeys = ['first_name', 'last_name', 'password', 'username', 'quantity'];
-        for(const key in Object.keys(payload)){
-            if(!(key in acceptedKeys)){
-                set400Response("Bad request", response);
-                return response.end();
-            }
-        }
+    if (
+        !payload.first_name ||
+        !payload.last_name ||
+        !payload.password ||
+        !payload.username
+    ) {
+        //400
+        set400Response("Bad Request", response);
+        return response.end();
+    }
 
-        if(!payload.first_name || !payload.last_name || !payload.password || !payload.username){
+    if (
+        typeof payload.first_name != "string" ||
+        typeof payload.last_name != "string" ||
+        typeof payload.password != "string" ||
+        typeof payload.username != "string"
+    ) {
+        set400Response("Bad request", response);
+        return response.end();
+    }
+
+    if (
+        !isNaN(payload.first_name) ||
+        !isNaN(payload.last_name) ||
+        !isNaN(payload.password) ||
+        !isNaN(payload.username)
+    ) {
+        set400Response("Bad request", response);
+        return response.end();
+    }
+
+    if (
+        !payload.first_name.trim() ||
+        !payload.last_name.trim() ||
+        !payload.password.trim() ||
+        !payload.username.trim()
+    ) {
+        //400
+        set400Response("Bad Request", response);
+        return response.end();
+    }
+
+    const emailValidity = await emailValidation(payload.username);
+    console.log(`emailValidity ----- ${emailValidity}`);
+
+    if (!emailValidity) {
+        //400
+        set400Response("username must be an email!", response);
+        return response.end();
+    } else {
+        const existingUser = await fetchUser(payload.username);
+        console.log(`existingUser ----- ${existingUser}`);
+        if (existingUser.userExists) {
             //400
-            set400Response("Bad Request", response);
+            set400Response(
+                "The given username is already been taken",
+                response
+            );
+            return response.end();
+        } else {
+            //201
+            payload.password = await hashPassword(payload.password);
+            const newUser = await saveUser(payload);
+            console.log(`newUser ----- ${JSON.stringify(newUser)}`);
+            delete newUser.password;
+            set201Response(newUser, response);
             return response.end();
         }
-        else{
-            const emailValidity = await emailValidation(payload.username);
-            if(!emailValidity){
-                //400
-                set400Response("Username must be in format of example@example.com", response);
-                return response.end();
-            }
-            else{
-
-                const existingUser = await fetchUser(payload.username);
-                if(existingUser.userExists){
-                    //400
-                    set400Response("User Already exists", response);
-                    return response.end();
-                }
-                else{
-                    //201
-                    payload.password = await hashPassword(payload.password);
-                    const newUser = await saveUser(payload);
-                    delete newUser.password;
-                    set201Response(newUser, response);
-                    return response.end();
-                }
-            }
-        }
+    }
 
     }
     catch(error){
         console.log("Error Caught in post call -- "+error);
-        set503Response("Please Retry",response);
+        set418Response("Please Retry",response);
         return response.end();
     }
 })
