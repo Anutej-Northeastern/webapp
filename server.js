@@ -161,7 +161,7 @@ app.post('/v1/user', async (request, response)=> {
     }
     catch(error){
         console.log("Error Caught in post call -- "+error);
-        set418Response("Please Retry",response);
+        set400Response("Bad Request",response);
         return response.end();
     }
 })
@@ -199,14 +199,14 @@ app.get('/v1/user/:id',async (request, response) => {
             } else {
                 //403
                 set403Response(
-                    "You are not authorized to access this data",
+                    "Cannot access records owned by others",
                     response
                 );
                 return response.end();
             }
             } else {
                 //401
-                set401Response("Username and password mismatch", response);
+                set401Response("Username or password incorrect", response);
                 return response.end();
                 }
             } else {
@@ -220,116 +220,133 @@ app.get('/v1/user/:id',async (request, response) => {
     }
     catch(error){
         //401
-        console.log("Caught error while handing get user api call ---"+error);
-        set418Response("Please Retry",response);
+        console.log("Caught error while handing get user api call"+error);
+        set400Response("Bad Request",response);
         return response.end();
     } 
 })
 
-app.put('/v1/user/:userId',async (request, response)=> {
+app.put('/v1/user/:id',async (request, response)=> {
     try{
         const authHeader = request.headers.authorization;
-
-        const [type, token] = authHeader.split(' ');
-        const decodedToken = Buffer.from(token,'base64').toString('utf8');
-        const [username, password] = decodedToken.split(':');
-
-        const id = request.params.userId;
-        if(isNaN(id)){
+        const [type, token] = authHeader.split(" ");
+        const decodedToken = Buffer.from(token, "base64").toString("utf8");
+        const [username, password] = decodedToken.split(":");
+    
+        const id = request.params.id;
+        if (isNaN(id)) {
             set400Response("Bad request", response);
             return response.end();
         }
+        //check for authentication - check if a user with the given username and password exist?
         const existingUser = await fetchUser(username);
-        if(!existingUser.userExists){
-            set401Response("No user account found with the given username",response)
+        if (!existingUser.userExists) {
+            set401Response(
+                "Unable to fetch user with given username",
+                response
+            );
             return response.end();
-        }else{
-            const authenticated = await checkPasswords(password, existingUser.user.password)
-            if(authenticated){
+        } else {
+            const authenticated = await checkPasswords(
+                password,
+                existingUser.user.password
+            );
+            if (authenticated) {
+    
+                //check if the user is authorized to edit the user
+                if (existingUser.user.id != id) {
+                    //403
+                    set403Response(
+                        "Cannot access records owned by others",
+                        response
+                    );
+                    return response.end();
+                }
+    
                 const payload = request.body;
-                console.log(`payload ----- ${payload}`);
-                if('first_name' in payload){
-                    if(!(payload.first_name.trim())){
-                        //400
-                        set400Response("first_name cannot be empty value", response);
+                
+                const acceptedKeys = [
+                    "first_name",
+                    "last_name",
+                    "password",
+                    "username",
+                ];
+                for (const key in Object.keys(payload)) {
+                    console.log(`$[(key in acceptedKeys)]`);
+                    if (!(key in acceptedKeys)) {
+                        set400Response("Bad request", response);
                         return response.end();
                     }
-                }else{
-                    payload.first_name = existingUser.first_name;
                 }
-
-                if('last_name' in payload){
-                    if(!(payload.last_name.trim())){
-                        //400
-                        set400Response("last_name cannot be empty value", response);
-                        return response.end();
-                    }
-                }else{
-                    payload.last_name = existingUser.last_name;
+    
+                //first_name = null
+                //first_name = ""
+                if (!payload.first_name ||
+                    !payload.last_name ||
+                    !payload.password ||
+                    !payload.username) {
+                    //400
+                    set400Response("Bad Request", response);
+                    return response.end();
                 }
-
-
-                let emailValidity = true;
-                let isUserNameTaken = false;
-
-                if(!payload.username){
+    
+    
+                if (
+                    typeof payload.first_name != "string" ||
+                    typeof payload.last_name != "string" ||
+                    typeof payload.password != "string" ||
+                    typeof payload.username != "string"
+                ) {
+                    set400Response("Bad request", response);
+                    return response.end();
+                }
+    
+                if (
+                    !isNaN(payload.first_name) ||
+                    !isNaN(payload.last_name) ||
+                    !isNaN(payload.password) ||
+                    !isNaN(payload.username)
+                ) {
+                    set400Response("Bad request", response);
+                    return response.end();
+                }
+    
+                if (
+                    !payload.first_name.trim() ||
+                    !payload.last_name.trim() ||
+                    !payload.password.trim() ||
+                    !payload.username.trim()
+                ) {
+                    //400
+                    set400Response("Bad Request", response);
+                    return response.end();
+                }
+    
+                if (!payload.username) {
                     payload.username = username;
-                }else{
-                    if(!(payload.username === username)){
-
+                } else {
+                    if (!(payload.username === username)) {
                         //400
-                        set400Response("Sorry, Cannot change username", response);
+                        set400Response("Username cannot be changed", response);
                         return response.end();
                     }
                 }
-
-                if(!emailValidity){
-                    //400
-                    set400Response("Username should be in the format example@example.com", response);
-                    return response.end();
-                }else if(isUserNameTaken){
-                    //400
-                    set400Response("User already exists", response);
-                    return response.end();
-                }
-                else{
-
-                    if(existingUser.user.id == id){
-                        if('password' in payload){
-                            if(!(payload.password.trim())){
-                                //400
-                                set400Response("password cannot be empty value", response);
-                                return response.end();
-                            }else{
-                                payload.password = await hashPassword(payload.password);
-                                //204
-                                const result = await updateUser(payload, id);
-                                set204Response(result, response);
-                                return response.end();
-                            }
-                        }else{
-                            payload.password = password;
-                            payload.password = await hashPassword(payload.password);
-                            //204
-                            const result = await updateUser(payload, id);
-                            set204Response(result, response);
-                            return response.end();
-                        }
-                    }else{
-                        //403
-                        set403Response("Cannot access other users data", response);
-                        return response.end();
-                    }
-                }
-            }else{
+    
+                payload.password = await hashPassword(payload.password);
+                //204
+                const result = await updateUser(payload, id);
+                set204Response(result, response);
+                return response.end();
+                
+            } else {
                 //401
-                set401Response("Username or password is incorrect",response)
+                set401Response("Username or password incorrect", response);
                 return response.end();
             }
         }
     }catch (e) {
         console.log("Caught Exception while handling put user request --- "+e);
-        set403Response("User-Password Missmatch",response);
+        set400Response("Bad Request",response);
         return response.end();
     }
 })
