@@ -23,6 +23,17 @@ variable "subnet_id" {
   default = "subnet-068d54f5cd4a7c26b"
 }
 
+variable "profile" {
+  type    = string
+  default = "dev"
+}
+
+variable "aws_acregions" {
+  type    = list(string)
+  default = ["us-east-1", ]
+}
+
+
 packer {
   required_plugins {
     amazon = {
@@ -34,8 +45,9 @@ packer {
 
 source "amazon-ebs" "my-ami" {
 
-  profile       = "dev"
-  ami_name      = "AWS_AMI-{{timestamp}}"
+  profile  = var.profile
+  ami_name = "AWS_AMI-{{timestamp}}"
+
 
   instance_type = "t2.micro"
   source_ami    = var.source_ami
@@ -43,8 +55,8 @@ source "amazon-ebs" "my-ami" {
   ssh_username  = var.ssh_username
   subnet_id     = var.subnet_id
   vpc_id        = "${var.vpc_id}"
+  ami_regions   = var.aws_acregions
   ami_users     = ["778516090662"]
-  ami_regions   = ["us-east-1", ]
 
   launch_block_device_mappings {
     delete_on_termination = true
