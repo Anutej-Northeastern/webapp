@@ -36,7 +36,7 @@ jobs:
           
     - name: Packer Build
       run: |
-        packer build -var-file=variables.pkrvars.hcl ami.pkr.hcl 
+        packer build ./packer/firstAMI.pkr.hcl
 
     - name: Clean up
       run: |
