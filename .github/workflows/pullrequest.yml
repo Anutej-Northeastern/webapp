@@ -1,8 +1,8 @@
-name: Packer Deploy
+name: Packer Validate
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches: ["main"]
 
 jobs:
@@ -27,17 +27,15 @@ jobs:
     - name: Packer Init
       run: packer init ./packer/firstAMI.pkr.hcl
 
-
     - name: Configure AWS Credentials and build packer
       uses: aws-actions/configure-aws-credentials@v1
       with:
           aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
           aws-region: 'us-east-1'
-          
-    - name: Packer Build
-      run: |
-        packer build ./packer/firstAMI.pkr.hcl
+
+    - name: Packer Validate
+      run: packer validate -recursive ./packer/firstAMI.pkr.hcl
 
     - name: Clean up
       run: |
