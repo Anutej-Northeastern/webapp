@@ -40,6 +40,7 @@ sudo cd /
 
 sudo mkdir webapp
 sudo unzip webapp.zip -d webapp
+sudo chmod 777 webapp
 sudo cd webapp
 
 pwd
