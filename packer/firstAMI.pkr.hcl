@@ -39,8 +39,8 @@ source "amazon-ebs" "my-ami" {
   instance_type = "t2.micro"
   source_ami    = var.source_ami
   region        = var.aws_region
-  ssh_username = var.ssh_username
-  subnet_id    = var.subnet_id
+  ssh_username  = var.ssh_username
+  subnet_id     = var.subnet_id
   vpc_id        = "${var.vpc_id}"
   ami_users     = ["778516090662"]
   ami_regions   = ["us-east-1", ]
@@ -59,6 +59,10 @@ build {
   provisioner "file" {
     source      = "dist/webapp.zip"
     destination = "/home/ec2-user/webapp.zip"
+  }
+  provisioner "file" {
+    source      = "./packer/webapp.service"
+    destination = "/home/ec2-user/webapp.service"
   }
   provisioner "shell" {
     script = "./packer/shell.sh"

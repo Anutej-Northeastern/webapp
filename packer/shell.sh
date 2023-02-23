@@ -33,3 +33,23 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE webapp TO webapp;"
 
 # Restart PostgreSQL service
 sudo systemctl restart postgresql-13
+
+# Moving to home directory and creating webapp to unzip and run npm i and start
+
+cd /
+
+mkdir webapp
+unzip webapp.zip -d webapp
+cd webapp
+
+pwd
+
+npm i
+
+cd ..
+
+pwd
+# Systemd to run node application
+sudo mv /home/ec2-user/webapp.service /etc/systemd/system/webapp.service
+sudo systemctl enable webapp.service
+sudo systemctl start webapp.service
