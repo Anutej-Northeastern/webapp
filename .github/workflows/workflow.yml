@@ -23,7 +23,7 @@ jobs:
         path: dist/webapp.zip
 
     - name: Packer Init
-      run: packer init .
+      run: packer init ./packer/firstAMI.pkr.hcl
 
     - name: Configure AWS Credentials and build packer
       uses: aws-actions/configure-aws-credentials@v1
