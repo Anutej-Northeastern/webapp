@@ -61,6 +61,7 @@ build {
     destination = "/home/ec2-user/webapp.zip"
   }
   provisioner "shell" {
-    script = "shell.sh"
+    script = "./packer/shell.sh"
+
   }
 }
