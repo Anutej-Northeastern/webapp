@@ -72,3 +72,15 @@ Below are the dependencies used for building the project:
    1. `npx sequelize-cli model:generate --name User --attributes id:number,first_name:string,last_name:string,password:string,username:string`
    2. `npx sequelize-cli model:generate --name Product --attributes id:number,name:string,description:string,sku:string,manufacturer:string,quantity:number`
 6. Running the above commands creates the migration files that are needed.
+
+## Packer
+   We follow following steps while creating ami image for packer
+1. cd to packer folder or to the folder that has the packer file
+2. packer init . - packer initialize all the packer files
+3. packer fmt . - packer format all the packer files
+4. packer validate . - packer validate all the packer files
+5. packer build . - packer build the ami image from the validated packer file
+
+## NOTES
+1. sudo systemctl status webapp.service -to restart webapp service on ec2
+2. cat ~/.bash_history - to print history without line numbers
