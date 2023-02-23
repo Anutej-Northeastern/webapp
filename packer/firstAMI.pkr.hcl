@@ -33,6 +33,7 @@ variable "aws_acregions" {
   default = ["us-east-1", ]
 }
 
+
 packer {
   required_plugins {
     amazon = {
@@ -46,6 +47,7 @@ source "amazon-ebs" "my-ami" {
 
   profile  = var.profile
   ami_name = "AWS_AMI-{{timestamp}}"
+
 
   instance_type = "t2.micro"
   source_ami    = var.source_ami
