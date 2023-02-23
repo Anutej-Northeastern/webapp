@@ -3,10 +3,10 @@ require('dotenv').config()
 
 const client = new Client({
     host: "localhost",
-    user: "postgres",
+    user: "webapp",
     port: 5432,
     password: "postgres",
-    database: "postgres"
+    database: "webapp"
 })
 
 module.exports = client

@@ -1,22 +1,22 @@
 module.exports = {
   development: {
-    username: "postgres",
+    username: "webapp",
     password: "postgres",
-    database: "postgres",
+    database: "webapp",
     host: "localhost",
     dialect: "postgres"
   },
   test: {
-    username: "postgres",
+    username: "webapp",
     password: "postgres",
-    database: "postgres",
+    database: "webapp",
     host: "localhost",
     dialect: "postgres"
   },
   production: {
-    username: "postgres",
+    username: "webapp",
     password: "postgres",
-    database: "postgres",
+    database: "webapp",
     host: "localhost",
     dialect: "postgres"
   }

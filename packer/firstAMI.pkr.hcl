@@ -13,6 +13,11 @@ variable "ssh_username" {
   default = "ec2-user"
 }
 
+variable "vpc_id" {
+  type    = string
+  default = "vpc-06f1d36bce4e7d1db"
+}
+
 variable "subnet_id" {
   type    = string
   default = "subnet-068d54f5cd4a7c26b"
@@ -27,12 +32,6 @@ packer {
   }
 }
 
-locals {
-  ami_regions = {
-    "us-east-1" = true
-  }
-}
-
 source "amazon-ebs" "my-ami" {
 
   profile       = "dev"
@@ -40,22 +39,11 @@ source "amazon-ebs" "my-ami" {
   instance_type = "t2.micro"
   source_ami    = var.source_ami
   region        = var.aws_region
-  ami_users     = ["778516090662"]
-  #ami_regions = []
-
-
-  //   source_ami_filter {
-  //     filters = {
-  //       name                = "Amazon linux 2"
-  //       root-device-type    = "ebs"
-  //       virtualization-type = "hvm"
-  //     }
-  //     most_recent = true
-  //     owners      = ["amazon"]
-  //   }
-
   ssh_username = var.ssh_username
   subnet_id    = var.subnet_id
+  vpc_id        = "${var.vpc_id}"
+  ami_users     = ["778516090662"]
+  ami_regions   = ["us-east-1", ]
 
   launch_block_device_mappings {
     delete_on_termination = true
@@ -68,8 +56,11 @@ source "amazon-ebs" "my-ami" {
 build {
   name    = "AMI build"
   sources = ["source.amazon-ebs.my-ami"]
-
+  provisioner "file" {
+    source      = "webapp.zip"
+    destination = "/home/ec2-user/webapp.zip"
+  }
   provisioner "shell" {
-    script = "installation.sh"
+    script = "./shell.sh"
   }
 }
