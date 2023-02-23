@@ -85,4 +85,3 @@ Below are the dependencies used for building the project:
 1. sudo systemctl status webapp.service -to restart webapp service on ec2
 2. cat ~/.bash_history - to print history without line numbers
 3. packer build -var-file="variables.pkrvars.hcl" . -gives values from this file to build
-
