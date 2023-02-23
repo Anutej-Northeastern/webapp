@@ -37,7 +37,8 @@ jobs:
           
     - name: Packer Build
       run: |
-        packer build .
+        packer build ./packer/firstAMI.pkr.hcl
+
 
     - name: Clean up
       run: |
