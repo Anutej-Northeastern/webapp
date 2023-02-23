@@ -48,6 +48,7 @@ sudo npm i
 
 sudo cd ..
 
+
 pwd
 # Systemd to run node application
 sudo mv /home/ec2-user/webapp.service /etc/systemd/system/webapp.service
