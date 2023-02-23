@@ -1,0 +1,17 @@
+[Unit]
+Description=Express_App
+After=cloud-final.service
+
+[Service]
+WorkingDirectory=/home/ec2-user/webapp
+ExecStart=/usr/bin/node /home/ec2-user/webapp/server.js
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=Express_App-1
+User=ec2-user
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=cloud-init.target
