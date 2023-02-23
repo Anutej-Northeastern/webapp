@@ -36,17 +36,18 @@ sudo systemctl restart postgresql-13
 
 # Moving to home directory and creating webapp to unzip and run npm i and start
 
-cd /
+sudo cd /
 
-mkdir webapp
-unzip webapp.zip -d webapp
-cd webapp
+sudo mkdir webapp
+sudo unzip webapp.zip -d webapp
+sudo cd webapp
 
 pwd
 
-npm i
+sudo npm i
 
-cd ..
+sudo cd ..
+
 
 pwd
 # Systemd to run node application
