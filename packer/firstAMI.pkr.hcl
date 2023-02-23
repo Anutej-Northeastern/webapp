@@ -35,7 +35,7 @@ packer {
 source "amazon-ebs" "my-ami" {
 
   profile       = "dev"
-  ami_name      = "AWS_AMI2"
+  ami_name      = "AWS_AMI--{{timestamp}}"
   instance_type = "t2.micro"
   source_ami    = var.source_ami
   region        = var.aws_region
