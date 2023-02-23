@@ -35,7 +35,7 @@ jobs:
           aws-region: 'us-east-1'
 
     - name: Packer Validate
-      run: packer validate -recursive ./packer/firstAMI.pkr.hcl
+      run: packer validate ./packer/firstAMI.pkr.hcl
 
     - name: Clean up
       run: |
