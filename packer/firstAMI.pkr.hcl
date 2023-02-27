@@ -75,7 +75,7 @@ build {
   }
   provisioner "file" {
     source      = "./packer/webapp.service"
-    destination = "/home/ec2-user/webapp.service
+    destination = "/home/ec2-user/webapp.service"
   }
   provisioner "shell" {
     script = "./packer/shell.sh"
