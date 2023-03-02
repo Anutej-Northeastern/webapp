@@ -1,9 +1,9 @@
+require("dotenv").config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const {sequelize} = require("./sequelize/models/index.js");
 const app = express();
-require("dotenv").config();
 const multer = require("multer");
 const multerS3 = require("multer-s3");
 const uuid = require("uuid").v4;
@@ -43,9 +43,9 @@ const {
 const { request } = require('http');
 
 aws.config.update({
-	accessKeyId: process.env.ACCESS_KEY,
-	secretAccessKey: process.env.ACCESS_SECRET_KEY,
-	region: process.env.REGION,
+	// accessKeyId: process.env.ACCESS_KEY,
+	// secretAccessKey: process.env.ACCESS_SECRET_KEY,
+	region: process.env.S3_REGION,
 });
 
 
@@ -399,6 +399,10 @@ app.post('/v1/product',async (request,response)=>{
     try {
 		//get the user credentials
 		const authHeader = request.headers.authorization;
+		if(authHeader===undefined){
+			set401Response("Unauthorized User",response);
+			return response.end();
+		}
 		const [type, token] = authHeader.split(" ");
 		const decodedToken = Buffer.from(token, "base64").toString("utf8");
 		const [username, password] = decodedToken.split(":");
@@ -424,6 +428,7 @@ app.post('/v1/product',async (request,response)=>{
 		);
 		if (!passwordCheck) {
 			//401
+			console.log("passwordCheck")
 		set401Response("Username or Password is incorrect", response);
 			return response.end();
 		}
@@ -443,6 +448,7 @@ app.post('/v1/product',async (request,response)=>{
 		for (const key in Object.keys(payload)) {
 			console.log(`$[(key in acceptedKeys)]`);
 			if (!(key in acceptedKeys)) {
+				console.log("inside keys");
 				set400Response("Bad request", response);
 				return response.end();
 			}
@@ -456,6 +462,8 @@ app.post('/v1/product',async (request,response)=>{
 			!("quantity" in payload)
 		) {
 			//400
+			console.log("inside name desc absence");
+
 			set400Response("Bad Request", response);
 			return response.end();
 		}
@@ -467,6 +475,8 @@ app.post('/v1/product',async (request,response)=>{
 			typeof payload.manufacturer != "string" ||
 			typeof payload.quantity != "number"
 		) {
+			console.log("inside name desc type check");
+
 			set400Response("Bad request", response);
 			return response.end();
 		}
@@ -489,6 +499,8 @@ app.post('/v1/product',async (request,response)=>{
 			!payload.manufacturer.trim()
 		) {
 			//400
+			console.log("inside name desc trim");
+
 			set400Response("Bad Request", response);
 			return response.end();
 		}
@@ -876,6 +888,10 @@ app.delete('/v1/product/:id', async (request,response)=> {
     try {
 		//get the user credentials
 		const authHeader = request.headers.authorization;
+		if(authHeader===undefined){
+			set401Response("Need to pass in the authorization details",response);
+			return response.end();
+		}
 		const [type, token] = authHeader.split(" ");
 		const decodedToken = Buffer.from(token, "base64").toString("utf8");
 		const [username, password] = decodedToken.split(":");
@@ -1022,7 +1038,7 @@ const authenticateUser = async (request, response, next) => {
 const upload = multer({
 	storage: multerS3({
 		s3: s3,
-		bucket: process.env.BUCKET_NAME,
+		bucket: process.env.S3_BUCKET,
 		metadata: (req, file, cb) => {
 			cb(null, { fieldName: file.fieldname });
 		},
@@ -1032,6 +1048,68 @@ const upload = multer({
 		},
 	}),
 });
+
+
+const deleteObjs = async(params, imgIds)=>{
+	return new Promise((resolve, reject)=>{
+		s3.deleteObjects(params, async (error, data) => {
+			if (error) {
+				reject(error);
+			} else {
+				console.log(`message on successful deletion` + data);
+				const d_image = await deleteImage(imgIds);
+				console.log(`deleted image --- ${d_image}`);
+				if (!d_image) {
+					reject(false);
+				} else {
+					resolve(d_image);
+				}
+			}
+		});
+	})
+}
+
+const removeAllImages = async (productId) => {
+	//200 - OK
+	try {
+		//delete an image of a product
+		//get the details of the given id from the db
+		const imgs = await getProductImages(productId);
+		let imgIds = [];
+		let s3Locations = [];
+		if (imgs.imagesExists) {
+			console.log("inside images exist");
+			imgs.images.forEach((image) => {
+				s3Locations.push(image.s3_bucket_path.split("/").pop());
+				imgIds.push(image.image_id);
+			});
+			console.log(`s3 locations --- ${s3Locations}`);
+			if (s3Locations.length == 0) {
+				return true;
+			}
+		} else {
+			return false;
+		}
+		//get its s3 address
+		const objects = s3Locations.map((key) => ({
+			Key: key
+		}));
+		var params = {
+			Bucket: process.env.S3_BUCKET,
+			Delete: {
+				Objects: objects
+			},
+		};
+		
+		const result = await deleteObjs(params, imgIds);
+		return result;
+		
+	} catch (error) {
+		console.log(`error due to -- ${error.message}`);
+		set400Response(error, response);
+		return false;
+	}
+};
 
 app.get('/v1/product/:productId/image',authenticateUser,async(request,response)=>{
 	//200 - OK
@@ -1104,8 +1182,8 @@ app.post("/v1/product/:productId/image",authenticateUser,upload.single("file"),a
 })
 
 aws.config.update({
-	accessKeyId: process.env.ACCESS_KEY,
-	secretAccessKey: process.env.ACCESS_SECRET_KEY,
+	// accessKeyId: process.env.ACCESS_KEY,
+	// secretAccessKey: process.env.ACCESS_SECRET_KEY,
 	region: process.env.REGION,
 });
 
@@ -1126,7 +1204,7 @@ app.delete("/v1/product/:productId/image/:imageId",authenticateUser,async(reques
 		}
 		//get its s3 address
 		var params = {
-			Bucket: "anutej-webapp-s3",
+			Bucket: process.env.S3_BUCKET,
 			Key: s3Location
 		};
 		s3.deleteObject(params, async (error, data) => {
@@ -1151,67 +1229,6 @@ app.delete("/v1/product/:productId/image/:imageId",authenticateUser,async(reques
 		return response.end();
 	}
 })
-
-const deleteObjs = async(params, imgIds)=>{
-	return new Promise((resolve, reject)=>{
-		s3.deleteObjects(params, async (error, data) => {
-			if (error) {
-				reject(error);
-			} else {
-				console.log(`message on successful deletion` + data);
-				const d_image = await deleteImage(imgIds);
-				console.log(`deleted image --- ${d_image}`);
-				if (!d_image) {
-					reject(false);
-				} else {
-					resolve(d_image);
-				}
-			}
-		});
-	})
-}
-
-const removeAllImages = async (productId) => {
-	//200 - OK
-	try {
-		//delete an image of a product
-		//get the details of the given id from the db
-		const imgs = await getProductImages(productId);
-		let imgIds = [];
-		let s3Locations = [];
-		if (imgs.imagesExists) {
-			console.log("inside images exist");
-			imgs.images.forEach((image) => {
-				s3Locations.push(image.s3_bucket_path.split("/").pop());
-				imgIds.push(image.image_id);
-			});
-			console.log(`s3 locations --- ${s3Locations}`);
-			if (s3Locations.length == 0) {
-				return true;
-			}
-		} else {
-			return false;
-		}
-		//get its s3 address
-		const objects = s3Locations.map((key) => ({
-			Key: key
-		}));
-		var params = {
-			Bucket: "webapp-product-images-upload",
-			Delete: {
-				Objects: objects
-			},
-		};
-		
-		const result = await deleteObjs(params, imgIds);
-		return result;
-		
-	} catch (error) {
-		console.log(`error due to -- ${error.message}`);
-		set400Response(error, response);
-		return false;
-	}
-};
 
 // handling unimplemented methods
 app.all('*',(req,res)=>{

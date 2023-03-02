@@ -1,7 +1,10 @@
 #!/bin/bash
 
-# Update package manager
+# to know what updates we have
 sudo yum update -y
+
+# to upgrade the packages
+sudo yum upgrade -y
 
 # Install Node.js
 curl -sL https://rpm.nodesource.com/setup_14.x | sudo bash -
@@ -22,8 +25,8 @@ sudo yum install nodejs -y
 # sudo systemctl start postgresql-13
 # sudo systemctl enable postgresql-13
 # sudo systemctl status postgresql-13
-# # Create a new database named "webapp"
-# sudo -u postgres createdb webapp
+# Create a new database named "webapp"
+#sudo -u postgres createdb webapp
 
 # # Create a new user with the username "webapp" and password "postgres"
 # sudo -u postgres psql -c "CREATE USER webapp WITH PASSWORD 'postgres';"

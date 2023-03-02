@@ -59,7 +59,7 @@ source "amazon-ebs" "my-ami" {
   region        = var.aws_region
   ssh_username  = var.ssh_username
   subnet_id     = var.subnet_id
-  vpc_id        = "${var.vpc_id}"
+  vpc_id        = var.vpc_id
   ami_regions   = var.aws_acregions
   ami_users     = var.aws_accs
 
