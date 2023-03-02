@@ -1,9 +1,7 @@
 
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
-const { User, Product, Image } = require('./sequelize/models/index');
-
-// User Service Method
+const { User, Product ,Image} = require('../webapp/sequelize/models/index.js');
 const saveUser = async(newUser) => {
 
     try{
@@ -71,7 +69,7 @@ const checkPasswords = (password, hashedPassword) =>{
             if(result){
                 resolve(true)
             }else{
-                reject(false)
+                resolve(false)
             }
         })
     })   
@@ -101,7 +99,6 @@ const updateUser = async (user, id) => {
     }
 }
 
-// Product Sevice Methods
 const getProductBySKU = async (productSKU) => {
     try{
         const product = await Product.findOne({ where:{ sku : productSKU }});
@@ -163,9 +160,6 @@ const deleteProduct = async (productId) => {
         return false;
     }
 }
-
-// Image Service Method
-
 
 const getProductImages = async (productId) => {
 	try {
