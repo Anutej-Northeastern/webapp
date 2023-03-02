@@ -3,6 +3,12 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const {sequelize} = require("./sequelize/models/index.js");
 const app = express();
+require("dotenv").config();
+const multer = require("multer");
+const multerS3 = require("multer-s3");
+const uuid = require("uuid").v4;
+const path = require("path");
+const aws = require("aws-sdk");
 const client = require('./connection.js');
 const {
     saveUser,
@@ -15,7 +21,11 @@ const {
     getProductBySKU,
     saveProduct,
     updateProduct,
-    deleteProduct } = require('./app-service.js');
+    deleteProduct,
+    getProductImages,
+	uploadImage,
+	getProductImageById,
+	deleteImage } = require('./app-service.js');
 
 const port = process.env.PORT || 3000;
 
@@ -30,7 +40,16 @@ const {
     set418Response,
     set501Response,
     set503Response} = require('./responses.js');
+const { request } = require('http');
 
+aws.config.update({
+	accessKeyId: process.env.ACCESS_KEY,
+	secretAccessKey: process.env.ACCESS_SECRET_KEY,
+	region: process.env.REGION,
+});
+
+
+const s3 = new aws.S3({});
 
 
 app.use(cors());
@@ -377,135 +396,137 @@ app.get('/v1/product/:id', async (request,response)=>{
 })
 // Authenticated Calls
 app.post('/v1/product',async (request,response)=>{
-    try{
-        
-	//get the user credentials
-	const authHeader = request.headers.authorization;
-	const [type, token] = authHeader.split(" ");
-	const decodedToken = Buffer.from(token, "base64").toString("utf8");
-	const [username, password] = decodedToken.split(":");
+    try {
+		//get the user credentials
+		const authHeader = request.headers.authorization;
+		const [type, token] = authHeader.split(" ");
+		const decodedToken = Buffer.from(token, "base64").toString("utf8");
+		const [username, password] = decodedToken.split(":");
 
-	//get the user details with the given username
-	const result = await fetchUser(username);
-	console.log(`logged in user details -- ${JSON.stringify(result)}`);
+		//get the user details with the given username
+		const result = await fetchUser(username);
+		console.log(`logged in user details -- ${JSON.stringify(result)}`);
 
-	//does a user exist with the given username?
-	if (!result.userExists) {
-		//401
-		set401Response(
+		//does a user exist with the given username?
+		if (!result.userExists) {
+			//401
+			set401Response(
 			`Unable to find user with username : ${username}`,
-			response
+				response
+			);
+			return response.end();
+		}
+
+		//is the password right?
+		const passwordCheck = await checkPasswords(
+			password,
+			result.user.password
 		);
-		return response.end();
-	}
-
-	//is the password right?
-	const passwordCheck = await checkPasswords(password, result.user.password);
-	if (!passwordCheck) {
-		//401
+		if (!passwordCheck) {
+			//401
 		set401Response("Username or Password is incorrect", response);
-		return response.end();
-	}
+			return response.end();
+		}
 
-	//only if everything is okay, create a new product
-	//check if the payload is correct
-	const payload = request.body;
-	console.log(`Payload ---${JSON.stringify(payload)}`);
+		//only if everything is okay, create a new product
+		//check if the payload is correct
+		const payload = request.body;
+		console.log(`Payload ---${JSON.stringify(payload)}`);
 
-	const acceptedKeys = [
-		"name",
-		"description",
-		"sku",
-		"manufacturer",
-		"quantity",
-	];
-	for (const key in Object.keys(payload)) {
-		console.log(`$[(key in acceptedKeys)]`);
-		if (!(key in acceptedKeys)) {
+		const acceptedKeys = [
+			"name",
+			"description",
+			"sku",
+			"manufacturer",
+			"quantity",
+		];
+		for (const key in Object.keys(payload)) {
+			console.log(`$[(key in acceptedKeys)]`);
+			if (!(key in acceptedKeys)) {
+				set400Response("Bad request", response);
+				return response.end();
+			}
+		}
+
+		if (
+			!payload.name ||
+			!payload.description ||
+			!payload.sku ||
+			!payload.manufacturer ||
+			!("quantity" in payload)
+		) {
+			//400
+			set400Response("Bad Request", response);
+			return response.end();
+		}
+
+		if (
+			typeof payload.name != "string" ||
+			typeof payload.description != "string" ||
+			typeof payload.sku != "string" ||
+			typeof payload.manufacturer != "string" ||
+			typeof payload.quantity != "number"
+		) {
 			set400Response("Bad request", response);
 			return response.end();
 		}
-	}
 
-	if (
-		!payload.name ||
-		!payload.description ||
-		!payload.sku ||
-		!payload.manufacturer ||
-		!("quantity" in payload)
-	) {
-		//400
-		set400Response("Bad Request", response);
-		return response.end();
-	}
+		if (
+			!isNaN(payload.name) ||
+			!isNaN(payload.description) ||
+			!isNaN(payload.sku) ||
+			!isNaN(payload.manufacturer) ||
+			isNaN(payload.quantity)
+		) {
+			set400Response("Bad request", response);
+			return response.end();
+		}
 
-	if (
-		typeof payload.name != "string" ||
-		typeof payload.description != "string" ||
-		typeof payload.sku != "string" ||
-		typeof payload.manufacturer != "string" ||
-		typeof payload.quantity != "number"
-	) {
-		set400Response("Bad request", response);
-		return response.end();
-	}
+		if (
+			!payload.name.trim() ||
+			!payload.description.trim() ||
+			!payload.sku.trim() ||
+			!payload.manufacturer.trim()
+		) {
+			//400
+			set400Response("Bad Request", response);
+			return response.end();
+		}
 
-	if (
-		!isNaN(payload.name) ||
-		!isNaN(payload.description) ||
-		!isNaN(payload.sku) ||
-		!isNaN(payload.manufacturer) ||
-		isNaN(payload.quantity)
-	) {
-		set400Response("Bad request", response);
-		return response.end();
-	}
-
-	if (
-		!payload.name.trim() ||
-		!payload.description.trim() ||
-		!payload.sku.trim() ||
-		!payload.manufacturer.trim()
-	) {
-		//400
-		set400Response("Bad Request", response);
-		return response.end();
-	}
-
-	//check if there is any product with the given SKU
-	const p = await getProductBySKU(payload.sku);
-	if (p.productExists) {
-		set400Response(
+		//check if there is any product with the given SKU
+		const p = await getProductBySKU(payload.sku);
+		if (p.productExists) {
+			set400Response(
 			"Product with given SKU already exists in DB",
-			response
-		);
-		return response.end();
-	}
+				response
+			);
+			return response.end();
+		}
 
-	if (payload.quantity < 0 || payload.quantity > 100) {
-		set400Response(
+		if (payload.quantity < 0 || payload.quantity > 100) {
+			set400Response(
 			"Quantity can only be between 0 and 100",
-			response
-		);
-		return response.end();
-	}
+				response
+			);
+			return response.end();
+		}
 
-	//nothing wrong with the payload
-	//add the owner_user_id to the payload
-	payload.owner_user_id = result.user.id;
-	const savedProduct = await saveProduct(payload);
-	if (savedProduct) {
-		set201Response(savedProduct, response);
-		return response.end();
-	} else {
-		set400Response("Bad Request", response);
-		return response.end();
-	}
+		//nothing wrong with the payload
+		//add the owner_user_id to the payload
+		payload.owner_user_id = result.user.id;
+		const savedProduct = await saveProduct(payload);
+		if (savedProduct) {
+			set201Response(savedProduct, response);
+			return response.end();
+		} else {
+			set400Response("Bad Request", response);
+			return response.end();
+		}
     }catch (e) {
         console.log("Caught Exception while handling post product request --- "+e);
-        set400Response("Bad Request",res);
-        return res.end();
-    }
+        set400Response("Bad Request",response);
+        return response.end();
+	}
 })
 
 app.patch('/v1/product/:id', async (request,response)=>{
@@ -846,94 +867,377 @@ app.put('/v1/product/:id', async (request,response)=>{
 	}
     }catch (e) {
         console.log("Caught Exception while handling put product request"+e);
-        set400Response("Bad Request",res);
-        return res.end();
-    }
-})
-app.delete('/v1/product/:id', async (request,response)=> {
-    try {
-        //get the user credentials
-        const authHeader = request.headers.authorization;
-        const [type, token] = authHeader.split(" ");
-        const decodedToken = Buffer.from(token, "base64").toString("utf8");
-        const [username, password] = decodedToken.split(":");
-    
-        //get the user details with the given username
-        const result = await fetchUser(username);
-        console.log(`logged in user details -- ${JSON.stringify(result)}`);
-    
-        //does a user exist with the given username?
-        if (!result.userExists) {
-            //401
-            set401Response(
-                `Unable to find user with username : ${username}`,
-                response
-            );
-            return response.end();
-        }
-    
-        //is the password right?
-        const passwordCheck = await checkPasswords(password, result.user.password);
-        if (!passwordCheck) {
-            //401
-            set401Response("Username or password is incorrect", response);
-            return response.end();
-        }
-    
-        //only if everything is okay
-        const productId = request.params.id;
-        if (isNaN(productId)) {
-            set400Response("Bad request", response);
-            return response.end();
-        }
-        console.log(`productId ---${JSON.stringify(productId)}`);
-        const productDetails = await getProduct(productId);
-    
-        if (!productDetails.productExists) {
-            //if no, send 404
-            set404Response(`Product Not Found`, response);
-            return response.end();
-        }
-        //check for owner of the product
-        if (productDetails.product.owner_user_id === result.user.id) {
-            //if yes, you can delete the product  - 204
-            const deletedProduct = await deleteProduct(productId);
-            console.log(`deleted product --- ${deletedProduct}`);
-            if (!deletedProduct) {
-                set400Response("Bad Request", response);
-                return response.end();
-            } else {
-                set204Response(result, response);
-                return response.end();
-            }
-        } else {
-            //if not then you are not authorized to update - 403
-            set403Response(
-                `Cannot access products with other owner ID`,
-                response
-            );
-            return response.end();
-        }
-    } catch (e) {
-        console.log("Caught Exception while handling delete product request"+e);
-        set503Response("Please Retry",response);
+        set400Response("Bad Request",response);
         return response.end();
     }
 })
 
-// handling unimplemented methods
-app.all('/healthz',(req,res)=>{
-    set501Response("Method not implemented",res);
-    return res.end();
+app.delete('/v1/product/:id', async (request,response)=> {
+    try {
+		//get the user credentials
+		const authHeader = request.headers.authorization;
+		const [type, token] = authHeader.split(" ");
+		const decodedToken = Buffer.from(token, "base64").toString("utf8");
+		const [username, password] = decodedToken.split(":");
+
+		//get the user details with the given username
+		const result = await fetchUser(username);
+
+		//does a user exist with the given username?
+		if (!result.userExists) {
+			//401
+			set401Response(
+                `Unable to find user with username : ${username}`,
+				response
+			);
+			return response.end();
+		}
+
+		//is the password right?
+		const passwordCheck = await checkPasswords(
+			password,
+			result.user.password
+		);
+		if (!passwordCheck) {
+			//401
+            set401Response("Username or password is incorrect", response);
+			return response.end();
+		}
+
+		//only if everything is okay
+		const productId = request.params.id;
+		if (isNaN(productId)) {
+			set400Response("Bad request", response);
+			return response.end();
+		}
+		const productDetails = await getProduct(productId);
+		console.log(productDetails);
+
+		if (!productDetails.productExists) {
+			//if no, send 404
+			set404Response(`Product Not Found`, response);
+			return response.end();
+		}
+		//check for owner of the product
+		if (productDetails.product.owner_user_id === result.user.id) {
+			//if yes, you can delete the product  - 204
+			const deleteImages = await removeAllImages(productId);
+			if(deleteImages){
+				const deletedProduct = await deleteProduct(productId);
+				if (!deletedProduct) {
+					set400Response("Bad Request", response);
+					return response.end();
+				} else {
+					set400Response(result, response);
+					return response.end();
+				}
+			}else{
+				set400Response("Error while deleting the images of this product", response);
+				return response.end();
+			}
+		} else {
+			//if not then you are not authorized to update - 403
+			set403Response(
+				`Sorry, you are not authorized to delete the product with id : ${productId}`,
+				response
+			);
+			return response.end();
+		}
+	} catch (error) {
+		console.log("caught exception handling delete product --- "+error);
+		set400Response(error, response);
+		return response.end();
+	}
 })
+
+// Image Api Calls
+
+
+const authenticateUser = async (request, response, next) => {
+	try {
+		console.log("inside authenticate user");
+		const authHeader = request.headers.authorization;
+		if(authHeader===undefined){
+			set401Response("Need to pass in the authorization details",response);
+			return response.end();
+		}
+		const [type, token] = authHeader.split(" ");
+		const decodedToken = Buffer.from(token, "base64").toString("utf8");
+		const [username, password] = decodedToken.split(":");
+		//get the user details with the given username
+		const result = await fetchUser(username);
+		console.log(`logged in user details -- ${JSON.stringify(result)}`);
+
+		//check for user authentication,
+		if (!result.userExists) {
+			//401
+			set401Response(
+				`No user account found with this username --- ${username}`,
+				response
+			);
+			return response.end();
+		}
+		//is the password right?
+		const passwordCheck = await checkPasswords(
+			password,
+			result.user.password
+		);
+		if (!passwordCheck) {
+			//401
+			set401Response("Username and password mismatch", response);
+			return response.end();
+		}
+
+		const productId = request.params.productId;
+		//check for product existance,
+		if (isNaN(productId)) {
+			set400Response("Bad request", response);
+			return response.end();
+		}
+
+		const productDetails = await getProduct(productId);
+
+		if (!productDetails.productExists) {
+			//if no, no product found - 404
+			set404Response(`Product Not Found`, response);
+			return response.end();
+		}
+
+		//check for user authorization
+		if (!(productDetails.product.owner_user_id === result.user.id)) {
+			set403Response(
+				`Sorry, you are not authorized to add images to this product`,
+				response
+			);
+			return response.end();
+		}
+		next();
+	} catch (error) {
+		console.log("Caught exception while handling user authentication --- "+error);
+		set400Response(error, response);
+		return response.end();
+	}
+};
+
+const upload = multer({
+	storage: multerS3({
+		s3: s3,
+		bucket: process.env.BUCKET_NAME,
+		metadata: (req, file, cb) => {
+			cb(null, { fieldName: file.fieldname });
+		},
+		key: (req, file, cb) => {
+			const ext = path.extname(file.originalname);
+			cb(null, `${uuid()}${ext}`);
+		},
+	}),
+});
+
+app.get('/v1/product/:productId/image',authenticateUser,async(request,response)=>{
+	//200 - OK
+	try {
+		const productId = request.params.productId;
+		const images = await getProductImages(productId);
+		if (images.imagesExists) {
+			set200Response(images.images, response);
+			return response.end();
+		} else {
+			set404Response(`No Images Found`, response);
+			return response.end();
+		}
+	} catch (error) {
+		set400Response(error, response);
+		return response.end();
+	}
+})
+
+app.get("/v1/product/:productId/image/:imageId",authenticateUser,async(request,response)=>{
+	//200 - OK
+	try {
+		const productId = request.params.productId;
+		const imageId = request.params.imageId;
+		const image = await getProductImageById(productId, imageId);
+		if (image.imageExists) {
+			set200Response(image.image, response);
+			return response.end();
+		} else {
+			set404Response(`No Image Found`, response);
+			return response.end();
+		}
+	} catch (error) {
+		set400Response(error, response);
+		return response.end();
+	}
+})
+
+app.post("/v1/product/:productId/image",authenticateUser,upload.single("file"),async(request,response)=>{
+	//200 - OK
+	try {
+		console.log("===============================");
+		if (!request.file) {
+			set400Response("File not uploaded", response);
+			return response.end();
+		}
+		//upload a document
+		const productId = request.params.productId;
+		const s3ObjectLocation = request.file.location;
+		console.log(`productId : ${productId}`);
+		console.log(`original filename : ${request.file.originalname}`);
+		console.log(`file location : ${s3ObjectLocation}`);
+		const imageDetails = await uploadImage({
+			product_id: productId,
+			file_name: request.file.originalname,
+			s3_bucket_path: s3ObjectLocation,
+		});
+		if (imageDetails) {
+			set201Response(imageDetails, response);
+			return response.end();
+		} else {
+			set400Response("Bad Request", response);
+			return response.end();
+		}
+	} catch (error) {
+		console.log(`error while uploading file --- ${error}`);
+		set400Response("Bad Request", response);
+		return response.end();
+	}
+})
+
+aws.config.update({
+	accessKeyId: process.env.ACCESS_KEY,
+	secretAccessKey: process.env.ACCESS_SECRET_KEY,
+	region: process.env.REGION,
+});
+
+app.delete("/v1/product/:productId/image/:imageId",authenticateUser,async(request,response)=>{
+	//200 - OK
+	try {
+		//delete an image of a product
+		//get the details of the given id from the db
+		const productId = request.params.productId;
+		const imageId = request.params.imageId;
+		const img = await getProductImageById(productId, imageId);
+		let s3Location;
+		if (img.imageExists) {
+			s3Location = img.image.s3_bucket_path.split("/").pop();
+		} else {
+			set404Response(`No Image Found`, response);
+			return response.end();
+		}
+		//get its s3 address
+		var params = {
+			Bucket: "anutej-webapp-s3",
+			Key: s3Location
+		};
+		s3.deleteObject(params, async (error, data) => {
+			if (error) {
+				set400Response(error.message, response);
+				return response.end();
+			} else {
+				const d_image = await deleteImage(imageId);
+				if (!d_image) {
+					set400Response("Bad Request", response);
+					return response.end();
+				} else {
+					console.log("Inside if delete image present");
+					set204Response(d_image, response);
+					return response.end();
+				}
+			}
+		});
+	} catch (error) {
+		console.log(`error occured while delete image -- ${error.message}`);
+		set400Response(error, response);
+		return response.end();
+	}
+})
+
+const deleteObjs = async(params, imgIds)=>{
+	return new Promise((resolve, reject)=>{
+		s3.deleteObjects(params, async (error, data) => {
+			if (error) {
+				reject(error);
+			} else {
+				console.log(`message on successful deletion` + data);
+				const d_image = await deleteImage(imgIds);
+				console.log(`deleted image --- ${d_image}`);
+				if (!d_image) {
+					reject(false);
+				} else {
+					resolve(d_image);
+				}
+			}
+		});
+	})
+}
+
+const removeAllImages = async (productId) => {
+	//200 - OK
+	try {
+		//delete an image of a product
+		//get the details of the given id from the db
+		const imgs = await getProductImages(productId);
+		let imgIds = [];
+		let s3Locations = [];
+		if (imgs.imagesExists) {
+			console.log("inside images exist");
+			imgs.images.forEach((image) => {
+				s3Locations.push(image.s3_bucket_path.split("/").pop());
+				imgIds.push(image.image_id);
+			});
+			console.log(`s3 locations --- ${s3Locations}`);
+			if (s3Locations.length == 0) {
+				return true;
+			}
+		} else {
+			return false;
+		}
+		//get its s3 address
+		const objects = s3Locations.map((key) => ({
+			Key: key
+		}));
+		var params = {
+			Bucket: "webapp-product-images-upload",
+			Delete: {
+				Objects: objects
+			},
+		};
+		
+		const result = await deleteObjs(params, imgIds);
+		return result;
+		
+	} catch (error) {
+		console.log(`error due to -- ${error.message}`);
+		set400Response(error, response);
+		return false;
+	}
+};
+
+// handling unimplemented methods
 app.all('*',(req,res)=>{
+	set501Response("Method not implemented",res);
+	return res.end();
+})
+
+app.all('/healthz',(req,res)=>{
     set501Response("Method not implemented",res);
     return res.end();
 })
 
 app.all('/user',(req,res)=>{
+	set501Response("Method not implemented",res);
+	return res.end();
+})
+
+app.all("/:productId/image/:imageId",(req,res)=>{
+	set501Response("Method not implemented",res);
+	return res.end();	
+})
+
+app.all("/:productId/image",(req,res)=>{
     set501Response("Method not implemented",res);
     return res.end();
 })
+
 
 module.exports = {app}

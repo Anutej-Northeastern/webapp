@@ -61,7 +61,7 @@ source "amazon-ebs" "my-ami" {
   subnet_id     = var.subnet_id
   vpc_id        = "${var.vpc_id}"
   ami_regions   = var.aws_acregions
-  ami_users     = ["778516090662"]
+  ami_users     = var.aws_accs
 
   launch_block_device_mappings {
     delete_on_termination = true
@@ -79,11 +79,11 @@ build {
     destination = "/home/ec2-user/webapp.zip"
   }
   provisioner "file" {
-    source      = "./packer/webapp.service"
+    source      = "webapp.service"
     destination = "/home/ec2-user/webapp.service"
   }
   provisioner "shell" {
-    script = "./packer/shell.sh"
+    script = "shell.sh"
 
   }
 }

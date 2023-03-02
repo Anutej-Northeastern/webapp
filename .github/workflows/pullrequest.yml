@@ -12,7 +12,7 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
-        
+
     - name: Zip repository
       run: |
         mkdir -p dist
@@ -25,7 +25,7 @@ jobs:
         path: dist/webapp.zip
 
     - name: Packer Init
-      run: packer init ./packer/firstAMI.pkr.hcl
+      run: packer init .
 
     - name: Configure AWS Credentials and build packer
       uses: aws-actions/configure-aws-credentials@v1
@@ -35,7 +35,7 @@ jobs:
           aws-region: 'us-east-1'
 
     - name: Packer Validate
-      run: packer validate ./packer/firstAMI.pkr.hcl
+      run: packer validate .
 
     - name: Clean up
       run: |
