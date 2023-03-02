@@ -13,6 +13,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
+    - name: Zip repository
+      run: |
+        mkdir -p dist
+        git archive --format=zip HEAD -o dist/webapp.zip
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: my-repo
+        path: dist/webapp.zip
+
     - name: Packer Init
       run: packer init .
 
