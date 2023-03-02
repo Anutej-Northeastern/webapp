@@ -79,11 +79,11 @@ build {
     destination = "/home/ec2-user/webapp.zip"
   }
   provisioner "file" {
-    source      = "./packer/webapp.service"
+    source      = "webapp.service"
     destination = "/home/ec2-user/webapp.service"
   }
   provisioner "shell" {
-    script = "./packer/shell.sh"
+    script = "shell.sh"
 
   }
 }
