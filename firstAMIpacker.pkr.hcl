@@ -82,8 +82,11 @@ build {
     source      = "webapp.service"
     destination = "/home/ec2-user/webapp.service"
   }
+  provisioner "file" {
+    source      = "agentConfig.json"
+    destination = "/home/ec2-user/agentConfig.json"
+  }
   provisioner "shell" {
     script = "shell.sh"
-
   }
 }
