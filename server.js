@@ -102,8 +102,8 @@ app.get('/healthz', (request, response) => {
 
 app.post('/v1/user', async (request, response)=> {
     try{
-	statsd.increment("api.all");
-	statsd.increment("api.user.create");
+	statsd.increment('api.all');
+	statsd.increment('api.user.create');
 		
 	const payload = request.body;
 	logger.info(`User Create Payload ---${JSON.stringify(payload)}`);
@@ -199,8 +199,8 @@ app.post('/v1/user', async (request, response)=> {
 app.get('/v1/user/:id',async (request, response) => {
 
     try{
-		statsd.increment("api.all");
-		statsd.increment("api.user.get");
+		statsd.increment('api.all');
+		statsd.increment('api.user.get');
 
         const authHeader = request.headers.authorization;
         const [type, token] = authHeader.split(" ");
@@ -259,8 +259,8 @@ app.get('/v1/user/:id',async (request, response) => {
 
 app.put('/v1/user/:id',async (request, response)=> {
     try{
-		statsd.increment("api.all");
-		statsd.increment("api.user.put");
+		statsd.increment('api.all');
+		statsd.increment('api.user.put');
 
         const authHeader = request.headers.authorization;
         const [type, token] = authHeader.split(" ");
@@ -388,8 +388,8 @@ app.put('/v1/user/:id',async (request, response)=> {
 // Unauthenticated call
 app.get('/v1/product/:id', async (request,response)=>{
     try {
-		statsd.increment("api.all");
-		statsd.increment("api.product.get");
+		statsd.increment('api.all');
+		statsd.increment('api.product.get');
 
         const productId = request.params.id;
 	    if (isNaN(productId)) {
@@ -414,8 +414,8 @@ app.get('/v1/product/:id', async (request,response)=>{
 app.post('/v1/product',async (request,response)=>{
     try {
 		//get the user credentials
-		statsd.increment("api.all");
-		statsd.increment("api.product.post");
+		statsd.increment('api.all');
+		statsd.increment('api.product.post');
 
 		const authHeader = request.headers.authorization;
 		if(authHeader===undefined){
@@ -561,8 +561,8 @@ app.post('/v1/product',async (request,response)=>{
 
 app.patch('/v1/product/:id', async (request,response)=>{
     try{
-		statsd.increment("api.all");
-		statsd.increment("api.product.patch");
+		statsd.increment('api.all');
+		statsd.increment('api.product.patch');
 
     //get the user credentials
 	const authHeader = request.headers.authorization;
@@ -750,8 +750,8 @@ app.patch('/v1/product/:id', async (request,response)=>{
 
 app.put('/v1/product/:id', async (request,response)=>{
     try{
-		statsd.increment("api.all");
-		statsd.increment("api.product.put");
+		statsd.increment('api.all');
+		statsd.increment('api.product.put');
 
 	//get the user credentials
 	const authHeader = request.headers.authorization;
@@ -909,8 +909,8 @@ app.put('/v1/product/:id', async (request,response)=>{
 
 app.delete('/v1/product/:id', async (request,response)=> {
     try {
-		statsd.increment("api.all");
-		statsd.increment("api.product.delete");
+		statsd.increment('api.all');
+		statsd.increment('api.product.delete');
 
 		//get the user credentials
 		const authHeader = request.headers.authorization;
@@ -1140,8 +1140,8 @@ const removeAllImages = async (productId) => {
 app.get('/v1/product/:productId/image',authenticateUser,async(request,response)=>{
 	//200 - OK
 	try {
-		statsd.increment("api.all");
-		statsd.increment("api.image.get");
+		statsd.increment('api.all');
+		statsd.increment('api.image.get');
 		logger.info(`Image Get Api Call`)
 		const productId = request.params.productId;
 		const images = await getProductImages(productId);
@@ -1162,8 +1162,8 @@ app.get('/v1/product/:productId/image',authenticateUser,async(request,response)=
 app.get("/v1/product/:productId/image/:imageId",authenticateUser,async(request,response)=>{
 	//200 - OK
 	try {
-		statsd.increment("api.all");
-		statsd.increment("api.image.getone");
+		statsd.increment('api.all');
+		statsd.increment('api.image.getone');
 		logger.info(`Image Get One Api Call`)
 		
 		const productId = request.params.productId;
@@ -1186,8 +1186,8 @@ app.get("/v1/product/:productId/image/:imageId",authenticateUser,async(request,r
 app.post("/v1/product/:productId/image",authenticateUser,upload.single("file"),async(request,response)=>{
 	//200 - OK
 	try {
-		statsd.increment("api.all");
-		statsd.increment("api.image.post");
+		statsd.increment('api.all');
+		statsd.increment('api.image.post');
 		
 		if (!request.file) {
 			set400Response("File not uploaded", response);
@@ -1233,8 +1233,8 @@ app.delete("/v1/product/:productId/image/:imageId",authenticateUser,async(reques
 	try {
 		//delete an image of a product
 		//get the details of the given id from the db
-		statsd.increment("api.all");
-		statsd.increment("api.image.delete");
+		statsd.increment('api.all');
+		statsd.increment('api.image.delete');
 		logger.info(`Image Get Api Call`)
 		
 
