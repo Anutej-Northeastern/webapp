@@ -2,6 +2,22 @@
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 const { User, Product ,Image} = require('../webapp/sequelize/models/index.js');
+const { format, createLogger, transports  } = require('winston');
+const path = require("path");
+
+const logger = createLogger({
+    format: format.combine(
+        format.timestamp(),
+        format.json()
+      ),
+	transports: [
+	  new transports.File({
+		filename: path.join('./logs', 'webApp.log')
+	  })
+	]
+  });
+  
+
 const saveUser = async(newUser) => {
 
     try{
@@ -56,7 +72,7 @@ const fetchUser = async (email) => {
             return {userExists: true, message:"User found", user: user.toJSON()};
         }
     }catch(e){
-        console.log(`exception while finding user---${e}`)
+        logger.warn(`exception while finding user---${e}`)
     }
     
 }
@@ -95,7 +111,7 @@ const updateUser = async (user, id) => {
             return {userExists: true, message:"User found", user: updatedUser};
         }
     }catch(e){
-        console.log(`exception while updating user---${e}`)
+        logger.warn(`exception while updating user---${e}`)
     }
 }
 
@@ -108,7 +124,7 @@ const getProductBySKU = async (productSKU) => {
             return {productExists: true, message:"Product found", product: product.toJSON()};
         }
     }catch(e){
-        console.log(`exception while finding product---${e}`)
+        logger.warn(`exception while finding product---${e}`)
     }
 }
 
@@ -121,7 +137,7 @@ const getProduct = async (productId) => {
             return {productExists: true, message:"Product found", product: product.toJSON()};
         }
     }catch(e){
-        console.log(`exception while finding product---${e}`)
+        logger.warn(`exception while finding product---${e}`)
     }
 }
 
@@ -130,7 +146,7 @@ const saveProduct = async (newProduct) => {
         const product = await Product.create(newProduct);
         return product.toJSON();
     }catch(e){
-        console.log(`error while saving product -- ${e}`)
+        logger.warn(`error while saving product -- ${e}`)
         return false;
     }
 }
@@ -145,7 +161,7 @@ const updateProduct = async (product, productId) => {
         const updatedProduct = await Product.update({...product}, { returning : true, where: { id : productId}});
         return updatedProduct;
     }catch(e){
-        console.log(`error while trying to update product -- ${e}`)
+        logger.warn(`error while trying to update product -- ${e}`)
         return false;
     }
 }
@@ -156,16 +172,16 @@ const deleteProduct = async (productId) => {
         const deletedProduct = await Product.destroy({ returning : true, where: { id : productId}});
         return deletedProduct;
     }catch(e){
-        console.log(`error while trying to delete product -- ${e}`)
+        logger.warn(`error while trying to delete product -- ${e}`)
         return false;
     }
 }
 
 const getProductImages = async (productId) => {
 	try {
-		console.log(`inside getProductImages service method -- ${productId}`);
+		logger.info(`inside getProductImages service method -- ${productId}`);
 		const images = await Image.findAll({ where: { product_id: productId } });
-		console.log(`after querying the Images -- ${JSON.stringify(images)}`);
+		logger.info(`after querying the Images -- ${JSON.stringify(images)}`);
 		if (images === null) {
 			return {
 				imagesExists: false,
@@ -180,15 +196,15 @@ const getProductImages = async (productId) => {
 			};
 		}
 	} catch (e) {
-		console.log(`exception while finding images---${e}`);
+		logger.warn(`exception while finding images---${e}`);
 	}
 };
 
 const getProductImageById = async (productId, imageId) => {
 	try {
-		console.log(`inside getProductImage service method -- ${productId}, ${imageId}`);
+		logger.info(`inside getProductImage service method -- ${productId}, ${imageId}`);
 		const image = await Image.findOne({ where: { image_id: imageId, product_id: productId } });
-		console.log(`after querying the Images -- ${JSON.stringify(image)}`);
+		logger.info(`after querying the Images -- ${JSON.stringify(image)}`);
 		if (image === null) {
 			return {
 				imageExists: false,
@@ -203,20 +219,20 @@ const getProductImageById = async (productId, imageId) => {
 			};
 		}
 	} catch (e) {
-		console.log(`exception while finding images---${e}`);
+		logger.warn(`exception while finding images---${e}`);
 	}
 };
 
 const uploadImage = async (newImage) => {
 	try {
-		console.log(
+		logger.info(
 			`inside uploadImage service method -- ${JSON.stringify(newImage)}`
 		);
 		const image = await Image.create(newImage);
-		console.log(`image details saved -- ${image.toJSON()}`);
+		logger.info(`image details saved -- ${image.toJSON()}`);
 		return image.toJSON();
 	} catch (e) {
-		console.log(`error while saving image -- ${e}`);
+		logger.warn(`error while saving image -- ${e}`);
 		return false;
 	}
 };
@@ -224,15 +240,15 @@ const uploadImage = async (newImage) => {
 
 const deleteImage = async (imageId) => {
 	try {
-		console.log(`inside deleteImage service method -- ${imageId}`);
+		logger.info(`inside deleteImage service method -- ${imageId}`);
 		const deletedImage = await Image.destroy({
 			returning: true,
 			where: { image_id: imageId },
 		});
-		console.log(`Images deleted -- ${deletedImage}`);
+		logger.info(`Images deleted -- ${deletedImage}`);
 		return deletedImage;
 	} catch (e) {
-		console.log(`error while trying to delete image -- ${e}`);
+		logger.warn(`error while trying to delete image -- ${e}`);
 		return false;
 	}
 };
@@ -252,5 +268,6 @@ module.exports = {
     getProductImages,
 	uploadImage,
 	getProductImageById,
-	deleteImage
+	deleteImage,
+    logger
 }

@@ -25,7 +25,8 @@ const {
     getProductImages,
 	uploadImage,
 	getProductImageById,
-	deleteImage } = require('./app-service.js');
+	deleteImage,
+	logger } = require('./app-service.js');
 
 const port = process.env.PORT || 3000;
 
@@ -51,41 +52,47 @@ aws.config.update({
 
 const s3 = new aws.S3({});
 
+const StatsD = require("node-statsd");
+const statsd = new StatsD({ host: "localhost", port: 8125 });
 
 app.use(cors());
 app.use(bodyParser.urlencoded({extended:true}));
 app.use(express.json());
 const connectDb = async() =>{
-    console.log('Checking database connection---');
+    logger.info('Checking database connection---');
     try{
         await sequelize.authenticate();
-        console.log('Database connection established.');
+        logger.info('Database connection established.');
         sequelize.sync({force:false}).then((result)=>{
-            console.log(`${result}`)
+            logger.info(`${result}`)
         })
     }catch(e){
-        console.log('Database connection failed',e);
+        logger.error('Database connection failed',e);
         process.exit(1);
     }
 }
 //self executing async function
 (async()=>{
     await connectDb();
-    console.log(`Server is now listening at port ${port}`);
+	logger.info(`Server is now listening at port ${port}`);
     app.listen(port, ()=>{
-        console.log(`Listening at port ${port}`);
+		logger.info(`Listening at port ${port}`);
     })
 })();
 
 
 // Health check api call
-app.get('/healthz', (request, response) => {
+app.get('/healthz', (request, response) => { 
     try{
-        set200Response("Everything is OK",response);
+		statsd.increment("api.all");
+		statsd.increment("api.healthz");
+		
+		logger.info('Healthz Received Healthz API call');
+		set200Response("Everything is OK",response);
         return response.end();
     }
     catch(error){
-        console.log(error+" -- Error Caught in healthz call")
+		logger.warn("Healtz API Error Caught in healthz call"+error);
         set503Response("Please Retry",response);
         return response.end();
     } 
@@ -95,12 +102,14 @@ app.get('/healthz', (request, response) => {
 
 app.post('/v1/user', async (request, response)=> {
     try{
-        const payload = request.body;
-    console.log(`Payload ---${JSON.stringify(payload)}`);
-
+	statsd.increment("api.all");
+	statsd.increment("api.user.create");
+		
+	const payload = request.body;
+	logger.info(`User Create Payload ---${JSON.stringify(payload)}`);
     const acceptedKeys = ["first_name", "last_name", "password", "username"];
     for (const key in Object.keys(payload)) {
-        console.log(`$[(key in acceptedKeys)]`);
+        logger.info(`$[(key in acceptedKeys)]`);
         if (!(key in acceptedKeys)) {
             set400Response("Bad request", response);
             return response.end();
@@ -150,7 +159,7 @@ app.post('/v1/user', async (request, response)=> {
     }
 
     const emailValidity = await emailValidation(payload.username);
-    console.log(`emailValidity ----- ${emailValidity}`);
+    logger.info(`User Create emailValidity ----- ${emailValidity}`);
 
     if (!emailValidity) {
         //400
@@ -158,7 +167,7 @@ app.post('/v1/user', async (request, response)=> {
         return response.end();
     } else {
         const existingUser = await fetchUser(payload.username);
-        console.log(`existingUser ----- ${existingUser}`);
+        logger.info(`User Create existingUser ----- ${existingUser}`);
         if (existingUser.userExists) {
             //400
             set400Response(
@@ -170,7 +179,7 @@ app.post('/v1/user', async (request, response)=> {
             //201
             payload.password = await hashPassword(payload.password);
             const newUser = await saveUser(payload);
-            console.log(`newUser ----- ${JSON.stringify(newUser)}`);
+            logger.info(`User Create newUser ----- ${JSON.stringify(newUser)}`);
             delete newUser.password;
             set201Response(newUser, response);
             return response.end();
@@ -179,7 +188,7 @@ app.post('/v1/user', async (request, response)=> {
 
     }
     catch(error){
-        console.log("Error Caught in post call -- "+error);
+        logger.warn("Error Caught in post call while User Create -- "+error);
         set400Response("Bad Request",response);
         return response.end();
     }
@@ -190,6 +199,9 @@ app.post('/v1/user', async (request, response)=> {
 app.get('/v1/user/:id',async (request, response) => {
 
     try{
+		statsd.increment("api.all");
+		statsd.increment("api.user.get");
+
         const authHeader = request.headers.authorization;
         const [type, token] = authHeader.split(" ");
         const decodedToken = Buffer.from(token, "base64").toString("utf8");
@@ -239,7 +251,7 @@ app.get('/v1/user/:id',async (request, response) => {
     }
     catch(error){
         //401
-        console.log("Caught error while handing get user api call"+error);
+        logger.warn("Caught error while handing get user api call"+error);
         set400Response("Bad Request",response);
         return response.end();
     } 
@@ -247,6 +259,9 @@ app.get('/v1/user/:id',async (request, response) => {
 
 app.put('/v1/user/:id',async (request, response)=> {
     try{
+		statsd.increment("api.all");
+		statsd.increment("api.user.put");
+
         const authHeader = request.headers.authorization;
         const [type, token] = authHeader.split(" ");
         const decodedToken = Buffer.from(token, "base64").toString("utf8");
@@ -291,15 +306,13 @@ app.put('/v1/user/:id',async (request, response)=> {
                     "username",
                 ];
                 for (const key in Object.keys(payload)) {
-                    console.log(`$[(key in acceptedKeys)]`);
+                    logger.info(`User Put $[(key in acceptedKeys)]`);
                     if (!(key in acceptedKeys)) {
                         set400Response("Bad request", response);
                         return response.end();
                     }
                 }
     
-                //first_name = null
-                //first_name = ""
                 if (!payload.first_name ||
                     !payload.last_name ||
                     !payload.password ||
@@ -364,7 +377,7 @@ app.put('/v1/user/:id',async (request, response)=> {
             }
         }
     }catch (e) {
-        console.log("Caught Exception while handling put user request --- "+e);
+        logger.warn("User Update Caught Exception while handling put user request --- "+e);
         set400Response("Bad Request",response);
         return response.end();
     }
@@ -375,6 +388,9 @@ app.put('/v1/user/:id',async (request, response)=> {
 // Unauthenticated call
 app.get('/v1/product/:id', async (request,response)=>{
     try {
+		statsd.increment("api.all");
+		statsd.increment("api.product.get");
+
         const productId = request.params.id;
 	    if (isNaN(productId)) {
 		    set401Response("Bad request", response);
@@ -389,7 +405,7 @@ app.get('/v1/product/:id', async (request,response)=>{
     		return response.end();
 	    }
     }catch (e) {
-        console.log("Caught Exception while handling get product request --- "+e);
+        logger.warn("Product Get Caught Exception while handling get product request --- "+e);
         set400Response("Bad Request",response);
         return response.end();
     }
@@ -398,6 +414,9 @@ app.get('/v1/product/:id', async (request,response)=>{
 app.post('/v1/product',async (request,response)=>{
     try {
 		//get the user credentials
+		statsd.increment("api.all");
+		statsd.increment("api.product.post");
+
 		const authHeader = request.headers.authorization;
 		if(authHeader===undefined){
 			set401Response("Unauthorized User",response);
@@ -409,7 +428,7 @@ app.post('/v1/product',async (request,response)=>{
 
 		//get the user details with the given username
 		const result = await fetchUser(username);
-		console.log(`logged in user details -- ${JSON.stringify(result)}`);
+		logger.info(`Product Create logged in user details -- ${JSON.stringify(result)}`);
 
 		//does a user exist with the given username?
 		if (!result.userExists) {
@@ -428,15 +447,14 @@ app.post('/v1/product',async (request,response)=>{
 		);
 		if (!passwordCheck) {
 			//401
-			console.log("passwordCheck")
-		set401Response("Username or Password is incorrect", response);
+			set401Response("Username or Password is incorrect", response);
 			return response.end();
 		}
 
 		//only if everything is okay, create a new product
 		//check if the payload is correct
 		const payload = request.body;
-		console.log(`Payload ---${JSON.stringify(payload)}`);
+		logger.info(`Porduct Post Payload ---${JSON.stringify(payload)}`);
 
 		const acceptedKeys = [
 			"name",
@@ -446,9 +464,9 @@ app.post('/v1/product',async (request,response)=>{
 			"quantity",
 		];
 		for (const key in Object.keys(payload)) {
-			console.log(`$[(key in acceptedKeys)]`);
+			logger.info(`Porduct Post $[(key in acceptedKeys)]`);
 			if (!(key in acceptedKeys)) {
-				console.log("inside keys");
+				logger.info(`Porduct Post inside keys`);
 				set400Response("Bad request", response);
 				return response.end();
 			}
@@ -462,7 +480,7 @@ app.post('/v1/product',async (request,response)=>{
 			!("quantity" in payload)
 		) {
 			//400
-			console.log("inside name desc absence");
+			logger.info(`Porduct Post inside name desc absence`);
 
 			set400Response("Bad Request", response);
 			return response.end();
@@ -475,7 +493,7 @@ app.post('/v1/product',async (request,response)=>{
 			typeof payload.manufacturer != "string" ||
 			typeof payload.quantity != "number"
 		) {
-			console.log("inside name desc type check");
+			logger.info(`Porduct Post inside name desc type check`);
 
 			set400Response("Bad request", response);
 			return response.end();
@@ -499,7 +517,7 @@ app.post('/v1/product',async (request,response)=>{
 			!payload.manufacturer.trim()
 		) {
 			//400
-			console.log("inside name desc trim");
+			logger.info(`Porduct Post inside name desc trim`);
 
 			set400Response("Bad Request", response);
 			return response.end();
@@ -535,7 +553,7 @@ app.post('/v1/product',async (request,response)=>{
 			return response.end();
 		}
     }catch (e) {
-        console.log("Caught Exception while handling post product request --- "+e);
+        logger.warn(`Porduct Post Caught Exception while handling post product request --- ${e}`);
         set400Response("Bad Request",response);
         return response.end();
 	}
@@ -543,6 +561,9 @@ app.post('/v1/product',async (request,response)=>{
 
 app.patch('/v1/product/:id', async (request,response)=>{
     try{
+		statsd.increment("api.all");
+		statsd.increment("api.product.patch");
+
     //get the user credentials
 	const authHeader = request.headers.authorization;
 	const [type, token] = authHeader.split(" ");
@@ -551,7 +572,7 @@ app.patch('/v1/product/:id', async (request,response)=>{
 
 	//get the user details with the given username
 	const result = await fetchUser(username);
-	console.log(`logged in user details -- ${JSON.stringify(result)}`);
+	logger.info(`Product Patch logged in user details -- ${JSON.stringify(result)}`);
 
 	//does a user exist with the given username?
 	if (!result.userExists) {
@@ -605,7 +626,7 @@ app.patch('/v1/product/:id', async (request,response)=>{
 				"quantity",
 			];
 			for (const key in Object.keys(payload)) {
-				console.log(`$[(key in acceptedKeys)]`);
+				logger.info(`Product Patch $[(key in acceptedKeys)]`);
 				if (!(key in acceptedKeys)) {
 					set400Response("Bad request", response);
 					return response.end();
@@ -710,7 +731,7 @@ app.patch('/v1/product/:id', async (request,response)=>{
 			}
 
 			const updatedProduct = updateProduct(payload, productId);
-			console.log(`updated product --- ${updatedProduct}`);
+			logger.info(`Product Patch updated product --- ${updatedProduct}`);
 			if (!updatedProduct) {
 				set400Response("Bad Request", response);
 				return response.end();
@@ -721,7 +742,7 @@ app.patch('/v1/product/:id', async (request,response)=>{
 		}
 	}
     }catch (e) {
-        console.log("Caught Exception while handling patch product request --- "+e);
+        logger.warn(`Product PatchCaught Exception while handling patch product request --- ${e}`);
         set400Response("Bad Request",response);
         return response.end();
     }
@@ -729,7 +750,9 @@ app.patch('/v1/product/:id', async (request,response)=>{
 
 app.put('/v1/product/:id', async (request,response)=>{
     try{
-        
+		statsd.increment("api.all");
+		statsd.increment("api.product.put");
+
 	//get the user credentials
 	const authHeader = request.headers.authorization;
 	const [type, token] = authHeader.split(" ");
@@ -738,7 +761,7 @@ app.put('/v1/product/:id', async (request,response)=>{
 
 	//get the user details with the given username
 	const result = await fetchUser(username);
-	console.log(`logged in user details -- ${JSON.stringify(result)}`);
+	logger.info(`Product Put logged in user details -- ${JSON.stringify(result)}`);
 
 	//does a user exist with the given username?
 	if (!result.userExists) {
@@ -785,8 +808,8 @@ app.put('/v1/product/:id', async (request,response)=>{
 			//if yes, you can update the product details - 204
 
 			const payload = request.body;
-			console.log(`productId ---${JSON.stringify(productId)}`);
-			console.log(`Payload ---${JSON.stringify(payload)}`);
+			logger.info(`Product Put productId ---${JSON.stringify(productId)}`);
+			logger.info(`Product Put Payload ---${JSON.stringify(payload)}`);
 
 			const acceptedKeys = [
 				"name",
@@ -796,7 +819,7 @@ app.put('/v1/product/:id', async (request,response)=>{
 				"quantity",
 			];
 			for (const key in Object.keys(payload)) {
-				console.log(`$[(key in acceptedKeys)]`);
+				logger.info(`Product Put $[(key in acceptedKeys)]`);
 				if (!(key in acceptedKeys)) {
 					set400Response("Bad request", response);
 					return response.end();
@@ -867,7 +890,7 @@ app.put('/v1/product/:id', async (request,response)=>{
 			}
 
 			const updatedProduct = updateProduct(payload, productId);
-			console.log(`updated product --- ${updatedProduct}`);
+			logger.info(`Product Put updated product --- ${updatedProduct}`);
 			if (!updatedProduct) {
 				set400Response("Bad Request", response);
 				return response.end();
@@ -878,7 +901,7 @@ app.put('/v1/product/:id', async (request,response)=>{
 		}
 	}
     }catch (e) {
-        console.log("Caught Exception while handling put product request"+e);
+        logger.warn(`Product Put Caught Exception while handling put product request ${e}`);
         set400Response("Bad Request",response);
         return response.end();
     }
@@ -886,6 +909,9 @@ app.put('/v1/product/:id', async (request,response)=>{
 
 app.delete('/v1/product/:id', async (request,response)=> {
     try {
+		statsd.increment("api.all");
+		statsd.increment("api.product.delete");
+
 		//get the user credentials
 		const authHeader = request.headers.authorization;
 		if(authHeader===undefined){
@@ -927,7 +953,7 @@ app.delete('/v1/product/:id', async (request,response)=> {
 			return response.end();
 		}
 		const productDetails = await getProduct(productId);
-		console.log(productDetails);
+		logger.info(`Product Delete productDetails`);
 
 		if (!productDetails.productExists) {
 			//if no, send 404
@@ -960,7 +986,7 @@ app.delete('/v1/product/:id', async (request,response)=> {
 			return response.end();
 		}
 	} catch (error) {
-		console.log("caught exception handling delete product --- "+error);
+		logger.warn(`caught exception handling delete product --- ${error}`);
 		set400Response(error, response);
 		return response.end();
 	}
@@ -971,7 +997,7 @@ app.delete('/v1/product/:id', async (request,response)=> {
 
 const authenticateUser = async (request, response, next) => {
 	try {
-		console.log("inside authenticate user");
+		logger.info(`Image Authenticate User inside authenticate user`);
 		const authHeader = request.headers.authorization;
 		if(authHeader===undefined){
 			set401Response("Need to pass in the authorization details",response);
@@ -982,7 +1008,7 @@ const authenticateUser = async (request, response, next) => {
 		const [username, password] = decodedToken.split(":");
 		//get the user details with the given username
 		const result = await fetchUser(username);
-		console.log(`logged in user details -- ${JSON.stringify(result)}`);
+		logger.info(`Image Authenticate User Middleware logged in user details -- ${JSON.stringify(result)}`);
 
 		//check for user authentication,
 		if (!result.userExists) {
@@ -1029,7 +1055,7 @@ const authenticateUser = async (request, response, next) => {
 		}
 		next();
 	} catch (error) {
-		console.log("Caught exception while handling user authentication --- "+error);
+		logger.warn(`Image Authenticate User Caught exception while handling user authentication --- ${error}`);
 		set400Response(error, response);
 		return response.end();
 	}
@@ -1056,9 +1082,9 @@ const deleteObjs = async(params, imgIds)=>{
 			if (error) {
 				reject(error);
 			} else {
-				console.log(`message on successful deletion` + data);
+				logger.info(`Delete Object Middleware message on successful deletion ${data}`);
 				const d_image = await deleteImage(imgIds);
-				console.log(`deleted image --- ${d_image}`);
+				logger.info(`Delete Object Middleware deleted image --- ${d_image}`);
 				if (!d_image) {
 					reject(false);
 				} else {
@@ -1078,12 +1104,12 @@ const removeAllImages = async (productId) => {
 		let imgIds = [];
 		let s3Locations = [];
 		if (imgs.imagesExists) {
-			console.log("inside images exist");
+			logger.info(`Delete all Images Middleware inside images exist`);
 			imgs.images.forEach((image) => {
 				s3Locations.push(image.s3_bucket_path.split("/").pop());
 				imgIds.push(image.image_id);
 			});
-			console.log(`s3 locations --- ${s3Locations}`);
+			logger.info(`Delete all Images Middleware s3 locations --- ${s3Locations}`);
 			if (s3Locations.length == 0) {
 				return true;
 			}
@@ -1105,7 +1131,7 @@ const removeAllImages = async (productId) => {
 		return result;
 		
 	} catch (error) {
-		console.log(`error due to -- ${error.message}`);
+		logger.warn(`Delete all Images Middleware error due to -- ${error.message}`);
 		set400Response(error, response);
 		return false;
 	}
@@ -1114,6 +1140,9 @@ const removeAllImages = async (productId) => {
 app.get('/v1/product/:productId/image',authenticateUser,async(request,response)=>{
 	//200 - OK
 	try {
+		statsd.increment("api.all");
+		statsd.increment("api.image.get");
+		logger.info(`Image Get Api Call`)
 		const productId = request.params.productId;
 		const images = await getProductImages(productId);
 		if (images.imagesExists) {
@@ -1124,6 +1153,7 @@ app.get('/v1/product/:productId/image',authenticateUser,async(request,response)=
 			return response.end();
 		}
 	} catch (error) {
+		logger.warn(`Image Get ${error}`);
 		set400Response(error, response);
 		return response.end();
 	}
@@ -1132,6 +1162,10 @@ app.get('/v1/product/:productId/image',authenticateUser,async(request,response)=
 app.get("/v1/product/:productId/image/:imageId",authenticateUser,async(request,response)=>{
 	//200 - OK
 	try {
+		statsd.increment("api.all");
+		statsd.increment("api.image.getone");
+		logger.info(`Image Get One Api Call`)
+		
 		const productId = request.params.productId;
 		const imageId = request.params.imageId;
 		const image = await getProductImageById(productId, imageId);
@@ -1143,6 +1177,7 @@ app.get("/v1/product/:productId/image/:imageId",authenticateUser,async(request,r
 			return response.end();
 		}
 	} catch (error) {
+		logger.warn(`Image Get One Caught error while handling get one product image api call -- ${error}`)
 		set400Response(error, response);
 		return response.end();
 	}
@@ -1151,7 +1186,9 @@ app.get("/v1/product/:productId/image/:imageId",authenticateUser,async(request,r
 app.post("/v1/product/:productId/image",authenticateUser,upload.single("file"),async(request,response)=>{
 	//200 - OK
 	try {
-		console.log("===============================");
+		statsd.increment("api.all");
+		statsd.increment("api.image.post");
+		
 		if (!request.file) {
 			set400Response("File not uploaded", response);
 			return response.end();
@@ -1159,9 +1196,13 @@ app.post("/v1/product/:productId/image",authenticateUser,upload.single("file"),a
 		//upload a document
 		const productId = request.params.productId;
 		const s3ObjectLocation = request.file.location;
-		console.log(`productId : ${productId}`);
-		console.log(`original filename : ${request.file.originalname}`);
-		console.log(`file location : ${s3ObjectLocation}`);
+		logger.info(`Image Post productId : ${productId}`);
+		logger.info(`Image Post original filename : ${request.file.originalname}`);
+		logger.info(`Image Post file location : ${s3ObjectLocation}`);
+		if (!request.file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) { // Check if the file type is allowed
+			set400Response('Only image files are allowed!',response)
+			return response.end();
+		}
 		const imageDetails = await uploadImage({
 			product_id: productId,
 			file_name: request.file.originalname,
@@ -1175,7 +1216,7 @@ app.post("/v1/product/:productId/image",authenticateUser,upload.single("file"),a
 			return response.end();
 		}
 	} catch (error) {
-		console.log(`error while uploading file --- ${error}`);
+		logger.warn(`Image Post error while uploading file --- ${error}`);
 		set400Response("Bad Request", response);
 		return response.end();
 	}
@@ -1192,6 +1233,11 @@ app.delete("/v1/product/:productId/image/:imageId",authenticateUser,async(reques
 	try {
 		//delete an image of a product
 		//get the details of the given id from the db
+		statsd.increment("api.all");
+		statsd.increment("api.image.delete");
+		logger.info(`Image Get Api Call`)
+		
+
 		const productId = request.params.productId;
 		const imageId = request.params.imageId;
 		const img = await getProductImageById(productId, imageId);
@@ -1217,14 +1263,14 @@ app.delete("/v1/product/:productId/image/:imageId",authenticateUser,async(reques
 					set400Response("Bad Request", response);
 					return response.end();
 				} else {
-					console.log("Inside if delete image present");
+					logger.info(`Image Delete Inside if delete image present`);
 					set204Response(d_image, response);
 					return response.end();
 				}
 			}
 		});
 	} catch (error) {
-		console.log(`error occured while delete image -- ${error.message}`);
+		logger.warn(`Image Delete error occured while delete image -- ${error.message}`);
 		set400Response(error, response);
 		return response.end();
 	}
