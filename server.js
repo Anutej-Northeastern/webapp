@@ -52,7 +52,7 @@ aws.config.update({
 
 const s3 = new aws.S3({});
 
-const StatsD = require("node-statsd");
+const StatsD = require('node-statsd');
 const statsd = new StatsD({ host: "localhost", port: 8125 });
 
 app.use(cors());
@@ -84,8 +84,8 @@ const connectDb = async() =>{
 // Health check api call
 app.get('/healthz', (request, response) => { 
     try{
-		statsd.increment("api.all");
-		statsd.increment("api.healthz");
+		statsd.increment('api.all');
+		statsd.increment('api.healthz');
 		
 		logger.info('Healthz Received Healthz API call');
 		set200Response("Everything is OK",response);
