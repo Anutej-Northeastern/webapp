@@ -102,8 +102,8 @@ app.get('/healthz', (request, response) => {
 
 app.post('/v1/user', async (request, response)=> {
     try{
-	//statsd.increment('api_all');
-	statsd.increment('api_userCreate');
+	statsd.increment('endpoint_all');
+	statsd.increment('endpoint_userCreate');
 		
 	const payload = request.body;
 	logger.info(`User Create Payload ---${JSON.stringify(payload)}`);
