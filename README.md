@@ -1,5 +1,4 @@
-# webapp:
-1.
+# webapp
 # CSYE 6225 Webapp
 
 
