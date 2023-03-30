@@ -1061,6 +1061,15 @@ const authenticateUser = async (request, response, next) => {
 	}
 };
 
+const fileFilter = function (req, file, cb) {
+	const allowedMimes = ['image/jpeg', 'image/png'];
+	if (allowedMimes.includes(file.mimetype)) {
+		cb(null, true);
+	} else {
+		cb(new Error('Invalid file type.'));
+	}
+}
+
 const upload = multer({
 	storage: multerS3({
 		s3: s3,
@@ -1071,8 +1080,12 @@ const upload = multer({
 		key: (req, file, cb) => {
 			const ext = path.extname(file.originalname);
 			cb(null, `${uuid()}${ext}`);
-		},
+		}
 	}),
+	fileFilter: fileFilter,
+	onError: function (err, next) {
+		next(err);
+	}
 });
 
 
@@ -1220,6 +1233,11 @@ app.post("/v1/product/:productId/image",authenticateUser,upload.single("file"),a
 		set400Response("Bad Request", response);
 		return response.end();
 	}
+},function (err, request, response, next) {
+	// handle file upload error
+	console.log(`handling file upload error`);
+	set400Response("Images of type jpeg and png are allowed", response);
+	return response.end();
 })
 
 aws.config.update({
