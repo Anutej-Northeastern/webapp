@@ -48,7 +48,7 @@ jobs:
 
     - name: Update launch template and refresh auto scaling group
       run: |
-            ami_ID=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
+            ami_ID=$(aws ec2 describe-images --owners self --filters "Name=name,Values=amazon*" --query 'sort_by(Images, &CreationDate)[-1].ImageId')
             echo $ami_ID
             template_ID=$(aws ec2 describe-launch-templates --launch-template-name asg_launch_template | jq '.LaunchTemplates[].LaunchTemplateId')
             template_ID="${LT_ID%\"}"
