@@ -98,6 +98,22 @@ app.get('/healthz', (request, response) => {
     } 
 });
 
+// health endpoint for cicd check
+app.get('/health', (request, response) => { 
+    try{
+		statsd.increment('endpoint_all');
+		statsd.increment('endpoint_healthz');
+		
+		logger.info('Healthz Received Healthz API call');
+		set200Response("Everything is OK",response);
+        return response.end();
+    }
+    catch(error){
+		logger.warn("Healtz API Error Caught in healthz call"+error);
+        set503Response("Please Retry",response);
+        return response.end();
+    } 
+});
 // Handling default user api calls
 
 app.post('/v1/user', async (request, response)=> {
