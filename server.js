@@ -116,7 +116,7 @@ app.get('/health', (request, response) => {
 });
 // Handling default user api calls
 
-app.post('/v1/user', async (request, response)=> {
+app.post('/v6/user', async (request, response)=> {
     try{
 	statsd.increment('endpoint_all');
 	statsd.increment('endpoint_userCreate');
